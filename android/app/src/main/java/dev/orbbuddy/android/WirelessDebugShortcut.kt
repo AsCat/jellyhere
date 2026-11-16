@@ -163,7 +163,7 @@ class WirelessDebugShortcut(
 
     private fun fail(stage: String) {
         if (!active) return
-        Log.i("OrbBuddy", "wireless shortcut failed: $stage")
+        Log.i("JellyHere", "wireless shortcut failed: $stage")
         active = false
         experience.edit().putInt("wireless_failures", experience.getInt("wireless_failures", 0) + 1).apply()
         runCatching {
@@ -174,7 +174,7 @@ class WirelessDebugShortcut(
     }
 
     private fun waitFor(stage: String, timeoutMs: Long, step: () -> Boolean) {
-        Log.i("OrbBuddy", "wireless shortcut waiting: $stage")
+        Log.i("JellyHere", "wireless shortcut waiting: $stage")
         val deadline = SystemClock.elapsedRealtime() + timeoutMs
         val task = object : Runnable {
             override fun run() {

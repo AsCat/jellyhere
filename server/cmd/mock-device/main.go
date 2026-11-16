@@ -7,15 +7,15 @@ import (
 	"os"
 	"time"
 
-	"github.com/AsCat/orbbuddy/server/internal/bridge"
+	"github.com/AsCat/jellyhere/server/internal/bridge"
 	"github.com/gorilla/websocket"
 )
 
 func main() {
-	url := os.Getenv("ORBBUDDY_DEVICE_URL")
-	token := os.Getenv("ORBBUDDY_DEVICE_TOKEN")
+	url := env("JELLYHERE_DEVICE_URL", "ORBBUDDY_DEVICE_URL")
+	token := env("JELLYHERE_DEVICE_TOKEN", "ORBBUDDY_DEVICE_TOKEN")
 	if url == "" || token == "" {
-		log.Fatal("ORBBUDDY_DEVICE_URL and ORBBUDDY_DEVICE_TOKEN are required")
+		log.Fatal("JELLYHERE_DEVICE_URL and JELLYHERE_DEVICE_TOKEN are required (ORBBUDDY_* aliases remain supported)")
 	}
 	for {
 		header := http.Header{"Authorization": []string{"Bearer " + token}}
@@ -35,7 +35,7 @@ func main() {
 			result := map[string]any{"done": true, "mock": true}
 			if command.Method == "get_screen" {
 				result = map[string]any{"revision": 1, "width": 1080, "height": 2400,
-					"tree": map[string]any{"path": "0", "text": "OrbBuddy mock device", "children": []any{}},
+					"tree": map[string]any{"path": "0", "text": "JellyHere mock device", "children": []any{}},
 				}
 			}
 			data, _ := json.Marshal(result)
@@ -46,4 +46,11 @@ func main() {
 		_ = conn.Close()
 		time.Sleep(3 * time.Second)
 	}
+}
+
+func env(primary, legacy string) string {
+	if value := os.Getenv(primary); value != "" {
+		return value
+	}
+	return os.Getenv(legacy)
 }

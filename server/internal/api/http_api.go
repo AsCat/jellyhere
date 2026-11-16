@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/AsCat/orbbuddy/server/internal/bridge"
+	"github.com/AsCat/jellyhere/server/internal/bridge"
 )
 
 var validRequestID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,80}$`)

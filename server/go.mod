@@ -1,4 +1,4 @@
-module github.com/AsCat/orbbuddy/server
+module github.com/AsCat/jellyhere/server
 
 go 1.25.0
 

@@ -11,7 +11,7 @@
 
     <application
         android:allowBackup="false"
-        android:label="圆伴 OrbBuddy"
+        android:label="果冻 JellyHere"
         android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity android:name=".MainActivity" android:exported="true">
@@ -22,7 +22,7 @@
         </activity>
         <service
             android:name=".OrbAccessibilityService"
-            android:label="圆伴屏幕与操作服务"
+            android:label="果冻屏幕与操作服务"
             android:exported="true"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>

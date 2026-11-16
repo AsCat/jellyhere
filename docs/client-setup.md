@@ -4,17 +4,17 @@
 
 ## Codex CLI / 桌面端
 
-在启动 Codex 的环境里设置 `ORBBUDDY_MCP_TOKEN`，配置 `~/.codex/config.toml`（若设置了 `CODEX_HOME`，则改为该目录下的 `config.toml`）：
+在启动 Codex 的环境里设置 `JELLYHERE_MCP_TOKEN`，配置 `~/.codex/config.toml`（若设置了 `CODEX_HOME`，则改为该目录下的 `config.toml`）：
 
 ```toml
-[mcp_servers.orbbuddy]
+[mcp_servers.jellyhere]
 url = "https://your-domain.example/mcp"
-bearer_token_env_var = "ORBBUDDY_MCP_TOKEN"
+bearer_token_env_var = "JELLYHERE_MCP_TOKEN"
 default_tools_approval_mode = "writes"
 tool_timeout_sec = 30
 ```
 
-`writes` 模式会对点击、滑动、输入和按键操作提示审批；`device_status`、`get_screen` 和 `get_app_info` 已标记只读。配置后重启 Codex，运行 `codex mcp get orbbuddy` 核对配置，或在界面中用 `/mcp` 查看。桌面端若无法继承 shell 环境变量，可按 [Codex 官方 MCP 文档](https://learn.chatgpt.com/docs/extend/mcp?surface=cli) 使用 `http_headers_helper` 从本机凭据存储读取令牌。
+`writes` 模式会对点击、滑动、输入和按键操作提示审批；`device_status`、`get_screen` 和 `get_app_info` 已标记只读。配置后重启 Codex，运行 `codex mcp get jellyhere` 核对配置，或在界面中用 `/mcp` 查看。旧配置中的 `mcp_servers.orbbuddy` 仍可连接同一 URL；名称只是本地别名。桌面端若无法继承 shell 环境变量，可按 [Codex 官方 MCP 文档](https://learn.chatgpt.com/docs/extend/mcp?surface=cli) 使用 `http_headers_helper` 从本机凭据存储读取令牌。
 
 ## 其他智能体
 
@@ -24,10 +24,10 @@ tool_timeout_sec = 30
 
 屏幕没有节点时先调用 `get_lock_state`。若 `interactive=false`，可显式调用 `wake_screen`，再查看返回的 `interactive` 与 `deviceLocked`；设备需要系统认证时请让用户在手机上解锁，再重试读屏。`wake_screen` 只请求唤亮，不输入 PIN，也不保证各厂商系统都会响应。它属于操作工具；`get_lock_state` 是只读工具。
 
-在已解锁且屏幕已亮时，可调用 `keep_screen_on`，例如 `{"deviceId":"samsung","minutes":10}`，避免测试中自动熄屏和随后的锁定。最长 30 分钟，到期自动结束；`get_lock_state` 返回 `keepAwakeRemainingMs`。调用 `stop_keep_screen_on`、手机通知的“结束亮屏”、暂停圆伴或断开会话均可结束。此操作不修改系统的全局屏幕超时设置；按电源键手动锁屏仍有效。显示屏 wake lock 是旧版 Android API，需按设备验证。
+在已解锁且屏幕已亮时，可调用 `keep_screen_on`，例如 `{"deviceId":"samsung","minutes":10}`，避免测试中自动熄屏和随后的锁定。最长 30 分钟，到期自动结束；`get_lock_state` 返回 `keepAwakeRemainingMs`。调用 `stop_keep_screen_on`、手机通知的“结束亮屏”、暂停果冻或断开会话均可结束。此操作不修改系统的全局屏幕超时设置；按电源键手动锁屏仍有效。显示屏 wake lock 是旧版 Android API，需按设备验证。
 
-## 无线调试与圆伴的关系
+## 无线调试与果冻的关系
 
-圆伴运行时不依赖无线 ADB：手机用移动网络也可主动连接 relay。无线 ADB 只用于开发时安装、调试 APK。`open_wireless_debugging_settings` 尝试打开系统设置；是否已开启须继续读屏确认。手机本地悬浮球的小米快捷流程和电脑端 `orb-adb` 的小米、三星恢复方式见[快捷操作与多设备](shortcuts.md)。圆伴离线时电脑端命令无法靠它打开设置。
+果冻运行时不依赖无线 ADB：手机用移动网络也可主动连接 relay。无线 ADB 只用于开发时安装、调试 APK。`open_wireless_debugging_settings` 尝试打开系统设置；是否已开启须继续读屏确认。手机本地悬浮球的小米快捷流程和电脑端 `orb-adb` 的小米、三星恢复方式见[快捷操作与多设备](shortcuts.md)。果冻离线时电脑端命令无法靠它打开设置。
 
-普通第三方 App 不能直接写入无线调试相关的安全设置；Android 将 `WRITE_SECURE_SETTINGS` 标为[不供第三方应用使用](https://developer.android.com/reference/android/Manifest.permission#WRITE_SECURE_SETTINGS)。[Android 官方无线 ADB 流程](https://developer.android.com/tools/adb#connect-to-a-device-over-wi-fi)要求先在手机上启用无线调试、完成配对，并让工作站与设备处于同一 Wi-Fi 网络。跨网使用还需要另行解决两端的网络可达性；圆伴的 HTTPS/WSS 中转只转发圆伴命令，不转发 ADB 连接。
+普通第三方 App 不能直接写入无线调试相关的安全设置；Android 将 `WRITE_SECURE_SETTINGS` 标为[不供第三方应用使用](https://developer.android.com/reference/android/Manifest.permission#WRITE_SECURE_SETTINGS)。[Android 官方无线 ADB 流程](https://developer.android.com/tools/adb#connect-to-a-device-over-wi-fi)要求先在手机上启用无线调试、完成配对，并让工作站与设备处于同一 Wi-Fi 网络。跨网使用还需要另行解决两端的网络可达性；果冻的 HTTPS/WSS 中转只转发果冻命令，不转发 ADB 连接。

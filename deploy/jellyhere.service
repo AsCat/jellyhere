@@ -1,0 +1,22 @@
+[Unit]
+Description=JellyHere device relay and MCP server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+WorkingDirectory=/opt/jellyhere
+EnvironmentFile=/etc/jellyhere/server.env
+ExecStart=/opt/jellyhere/jellyhere-server
+Restart=always
+RestartSec=3
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+MemoryMax=128M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

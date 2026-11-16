@@ -3,11 +3,13 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-val releaseKeystore = providers.environmentVariable("ORBBUDDY_RELEASE_KEYSTORE").orNull
-val releaseStorePassword = providers.environmentVariable("ORBBUDDY_RELEASE_STORE_PASSWORD").orNull
+val releaseKeystore = providers.environmentVariable("JELLYHERE_RELEASE_KEYSTORE").orNull?.takeIf { it.isNotBlank() }
+    ?: providers.environmentVariable("ORBBUDDY_RELEASE_KEYSTORE").orNull
+val releaseStorePassword = providers.environmentVariable("JELLYHERE_RELEASE_STORE_PASSWORD").orNull?.takeIf { it.isNotBlank() }
+    ?: providers.environmentVariable("ORBBUDDY_RELEASE_STORE_PASSWORD").orNull
 val releaseRequested = gradle.startParameter.taskNames.any { it.contains("release", ignoreCase = true) }
 if (releaseRequested && (releaseKeystore.isNullOrBlank() || releaseStorePassword.isNullOrBlank())) {
-    throw GradleException("Release signing requires ORBBUDDY_RELEASE_KEYSTORE and ORBBUDDY_RELEASE_STORE_PASSWORD")
+    throw GradleException("Release signing requires JELLYHERE_RELEASE_KEYSTORE and JELLYHERE_RELEASE_STORE_PASSWORD (legacy ORBBUDDY_* aliases supported)")
 }
 
 android {
@@ -20,8 +22,8 @@ android {
         applicationId = "dev.orbbuddy.android"
         minSdk = 30
         targetSdk = 34
-        versionCode = 9
-        versionName = "0.4.5"
+        versionCode = 10
+        versionName = "0.4.6"
     }
 
     signingConfigs {

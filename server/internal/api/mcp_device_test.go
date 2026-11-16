@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/AsCat/orbbuddy/server/internal/bridge"
+	"github.com/AsCat/jellyhere/server/internal/bridge"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 

@@ -1,6 +1,6 @@
 # 开发者快速开始
 
-圆伴由 Android App、Go relay 和 MCP 客户端组成。手机主动通过 WSS 连接 relay，电脑通过 HTTPS MCP 连接同一个 relay；运行时不需要 ADB 或同一局域网。
+果冻由 Android App、Go relay 和 MCP 客户端组成。手机主动通过 WSS 连接 relay，电脑通过 HTTPS MCP 连接同一个 relay；运行时不需要 ADB 或同一局域网。
 
 ## 1. 启动 relay
 
@@ -9,10 +9,10 @@
 ```bash
 cd server
 go test ./...
-go build -o orbbuddy-server ./cmd/orbbuddy-server
+go build -o jellyhere-server ./cmd/jellyhere-server
 ```
 
-为设备和 MCP 客户端分别生成一枚随机令牌，例如 `openssl rand -hex 32`。设置 `ORBBUDDY_DEVICE_TOKEN`、`ORBBUDDY_MCP_TOKEN` 和 `ORBBUDDY_LISTEN=127.0.0.1:18093`，将 Go 进程作为 systemd 服务运行。用 Nginx 等反向代理提供 HTTPS/WSS；从[自托管指南](self-host.md)生成自己的域名与证书配置。设备入口是 `wss://你的域名/device?id=primary`，MCP 入口是 `https://你的域名/mcp`。Go 监听地址保持为本机地址。
+为设备和 MCP 客户端分别生成一枚随机令牌，例如 `openssl rand -hex 32`。设置 `JELLYHERE_DEVICE_TOKEN`、`JELLYHERE_MCP_TOKEN` 和 `JELLYHERE_LISTEN=127.0.0.1:18093`，将 Go 进程作为 systemd 服务运行。用 Nginx 等反向代理提供 HTTPS/WSS；从[自托管指南](self-host.md)生成自己的域名与证书配置。设备入口是 `wss://你的域名/device?id=primary`，MCP 入口是 `https://你的域名/mcp`。Go 监听地址保持为本机地址。
 
 ## 2. 安装 Android App
 
@@ -23,11 +23,11 @@ cd android
 ./gradlew :app:assembleDebug
 ```
 
-安装 `app/build/outputs/apk/debug/app-debug.apk`。GitHub Actions 的 `orbbuddy-debug-apk` 构建产物也可用于首次试装；每次 CI 的调试签名可能不同，不能保证覆盖安装上一轮 CI 包。长期使用请用自己保管的固定签名构建。不要将设备令牌放入 APK 或 Git 仓库。
+安装 `app/build/outputs/apk/debug/app-debug.apk`。GitHub Actions 的 `jellyhere-android-debug-apk` 构建产物也可用于首次试装；每次 CI 的调试签名可能不同，不能保证覆盖安装上一轮 CI 包。长期使用请用自己保管的固定签名构建。不要将设备令牌放入 APK 或 Git 仓库。
 
-在手机中打开圆伴，填入 WSS 地址、唯一设备 ID 和设备令牌，点击“保存并连接”，再手动启用圆伴无障碍服务。单机可用 `primary`；两台手机可设为 `xiaomi` 与 `samsung`，或保留既有小米的 `primary` 并将三星设为 `samsung`。同一 ID 的新连接会替换旧连接。Android 13+ 允许会话通知，并按设备需要调整后台运行设置。小米澎湃 OS 的实机验证还需允许自启动与通知、设置省电策略为“无限制”。会话开启后，前台通知会常驻；停止会话会释放部分唤醒锁。
+在手机中打开果冻，填入 WSS 地址、唯一设备 ID 和设备令牌，点击“保存并连接”，再手动启用果冻无障碍服务。单机可用 `primary`；两台手机可设为 `xiaomi` 与 `samsung`，或保留既有小米的 `primary` 并将三星设为 `samsung`。同一 ID 的新连接会替换旧连接。Android 13+ 允许会话通知，并按设备需要调整后台运行设置。小米澎湃 OS 的实机验证还需允许自启动与通知、设置省电策略为“无限制”。会话开启后，前台通知会常驻；停止会话会释放部分唤醒锁。
 
-“显示圆伴卡通悬浮球”默认关闭。打开后可拖动贴边；点击悬浮球可暂停或恢复远程访问、隐藏悬浮球。暂停会拒绝读屏、应用信息查询及所有远程操作，心跳仍保持连接，`device_status` 最多约 25 秒后显示 `paused: true`。如果隐藏了悬浮球，可回到 App 重新打开。悬浮球使用无障碍悬浮层，无需单独的“显示在其他应用上层”授权。
+“显示果冻卡通悬浮球”默认关闭。打开后可拖动贴边；点击悬浮球可暂停或恢复远程访问、隐藏悬浮球。暂停会拒绝读屏、应用信息查询及所有远程操作，心跳仍保持连接，`device_status` 最多约 25 秒后显示 `paused: true`。如果隐藏了悬浮球，可回到 App 重新打开。悬浮球使用无障碍悬浮层，无需单独的“显示在其他应用上层”授权。
 
 ## 3. 接入智能体
 

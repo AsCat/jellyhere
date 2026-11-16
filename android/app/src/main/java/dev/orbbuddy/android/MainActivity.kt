@@ -49,7 +49,7 @@ class MainActivity : Activity() {
             layout.addView(view, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
         add(TextView(this).apply {
-            text = "圆伴 OrbBuddy · 开发测试会话"
+            text = "果冻 JellyHere · 开发测试会话"
             textSize = 22f
         })
         add(TextView(this).apply {
@@ -128,7 +128,7 @@ class MainActivity : Activity() {
             setOnClickListener { openWirelessDebuggingSettings() }
         })
         orbSwitch = Switch(this).apply {
-            text = "显示圆伴卡通悬浮球"
+            text = "显示果冻卡通悬浮球"
             isChecked = prefs.getBoolean("orb_enabled", false)
             setOnCheckedChangeListener { _, checked ->
                 if (refreshing) return@setOnCheckedChangeListener

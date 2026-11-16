@@ -14,18 +14,18 @@ object PairingCode {
     fun create(context: Context, scope: String, targetPackage: String = ""): Result {
         val prefs = context.getSharedPreferences("connection", Context.MODE_PRIVATE)
         if (!prefs.getBoolean("enabled", false) || prefs.getString("status", "") != "已连接") {
-            return Result(message = "请先让圆伴连接服务器")
+            return Result(message = "请先让果冻连接服务器")
         }
         if (prefs.getBoolean("paused", false)) return Result(message = "请先恢复远程访问")
         if (scope == "controller") {
-            if (targetPackage.isBlank()) return Result(message = "请先在圆伴主界面填写可调试 App 包名")
+            if (targetPackage.isBlank()) return Result(message = "请先在果冻主界面填写可调试 App 包名")
             try {
                 val info = context.packageManager.getApplicationInfo(targetPackage, 0)
                 if (info.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) {
                     return Result(message = "该 App 不是可调试版本，只能使用只读授权")
                 }
             } catch (_: PackageManager.NameNotFoundException) {
-                return Result(message = "未找到该 App；请在圆伴主界面设置包名")
+                return Result(message = "未找到该 App；请在果冻主界面设置包名")
             }
         } else if (scope != "viewer") {
             return Result(message = "不支持的授权范围")

@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "OrbBuddy"
+rootProject.name = "JellyHere"
 include(":app")

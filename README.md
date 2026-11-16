@@ -1,10 +1,12 @@
-# 圆伴 OrbBuddy
+# 果冻 JellyHere
 
-让 Android 手机在移动网络下主动连回可从公网访问的中转服务，通过 MCP 向电脑上的智能体提供按需读屏和界面操作。MVP 以开发测试为目标，无需运行时无线 ADB，也无需手机和电脑处在同一局域网。
+**Your device companion for AI agents. Android first.**
+
+JellyHere 是连接个人设备与 AI 智能体的开源项目。首版支持 Android 开发测试：手机在移动网络下主动连接中转服务，智能体通过 MCP 按需读屏和操作，无需运行时无线 ADB，也无需同一局域网。iOS 和电脑端将按系统能力逐步接入，详见[平台支持规划](docs/platform-support.md)。
 
 ## 模块
 
-- `android/`：Android 11+ 客户端。用户手动启用无障碍服务，填写 `wss://` 地址和设备令牌，开启或停止测试会话；可选卡通悬浮球提供手机端暂停入口。
+- `android/`：首个设备端，支持 Android 11+。用户手动启用无障碍服务，填写 `wss://` 地址和设备令牌，开启或停止测试会话；可选卡通悬浮球提供手机端暂停入口。
 - `server/`：单个 Go 进程，接收手机 WebSocket 长连接，并提供 Streamable HTTP MCP 接口；不持久化屏幕内容。
 - `deploy/`：systemd 与 Nginx 部署模板。维护者实例的入口为 `orb.yuanxuyinli.com`，Go 只监听本机端口。
 
@@ -20,24 +22,24 @@ Android 无障碍服务 ── WSS/移动网络 ──> 公网可达的 Go relay
 
 手机断线后自动退避重连。`get_screen` 默认读取当前无障碍节点树及压缩 JPEG；可用 `includeImage=false` 不取图片、`treeMode=compact` 返回精简元素列表，或设置 `maxImageEdge` 为 320–1280 像素。`tap_element` 使用该次读屏返回的 `revision` 与节点 `path`，界面变化后必须重新读屏。截图被 Android 拒绝或安全窗口遮挡时，仍可返回可见的节点树和 `imageError`。
 
-息屏时可先用 `get_lock_state` 查询，再显式调用 `wake_screen` 尝试唤亮显示屏。唤亮不等于解锁：设备仍要求 PIN、图案、密码或生物验证时，用户须在手机上完成系统认证，圆伴不会代输锁屏凭据。当前屏幕唤醒使用限时的旧版 Android wake lock 标志；不同系统可能拒绝，工具会返回实际 `interactive` 状态。[Android 锁屏接口](https://developer.android.com/reference/android/app/KeyguardManager#requestDismissKeyguard(android.app.Activity,%20android.app.KeyguardManager.KeyguardDismissCallback))
+息屏时可先用 `get_lock_state` 查询，再显式调用 `wake_screen` 尝试唤亮显示屏。唤亮不等于解锁：设备仍要求 PIN、图案、密码或生物验证时，用户须在手机上完成系统认证，果冻不会代输锁屏凭据。当前屏幕唤醒使用限时的旧版 Android wake lock 标志；不同系统可能拒绝，工具会返回实际 `interactive` 状态。[Android 锁屏接口](https://developer.android.com/reference/android/app/KeyguardManager#requestDismissKeyguard(android.app.Activity,%20android.app.KeyguardManager.KeyguardDismissCallback))
 
-开发测试时可显式调用 `keep_screen_on`，在已解锁且屏幕已亮的手机上临时阻止自动熄屏；默认 10 分钟，最长 30 分钟。`get_lock_state.keepAwakeRemainingMs` 可查看剩余时间，`stop_keep_screen_on` 或手机通知的“结束亮屏”可立即停止。圆伴暂停、断线或测试会话结束时也会释放；按电源键手动锁屏仍优先于此功能。它使用已弃用但适合当前后台测试场景的 Android 显示屏 wake lock，可能受厂商系统限制，不应当作永久不锁屏设置。[Android 亮屏指南](https://developer.android.com/develop/background-work/background-tasks/awake/screen-on)、[PowerManager 文档](https://developer.android.com/reference/android/os/PowerManager#SCREEN_BRIGHT_WAKE_LOCK)
+开发测试时可显式调用 `keep_screen_on`，在已解锁且屏幕已亮的手机上临时阻止自动熄屏；默认 10 分钟，最长 30 分钟。`get_lock_state.keepAwakeRemainingMs` 可查看剩余时间，`stop_keep_screen_on` 或手机通知的“结束亮屏”可立即停止。果冻暂停、断线或测试会话结束时也会释放；按电源键手动锁屏仍优先于此功能。它使用已弃用但适合当前后台测试场景的 Android 显示屏 wake lock，可能受厂商系统限制，不应当作永久不锁屏设置。[Android 亮屏指南](https://developer.android.com/develop/background-work/background-tasks/awake/screen-on)、[PowerManager 文档](https://developer.android.com/reference/android/os/PowerManager#SCREEN_BRIGHT_WAKE_LOCK)
 
 ## 本地开发
 
 ```bash
 cd server
 go test ./...
-ORBBUDDY_DEVICE_TOKEN=dev-device ORBBUDDY_MCP_TOKEN=dev-mcp go run ./cmd/orbbuddy-server
+JELLYHERE_DEVICE_TOKEN=dev-device JELLYHERE_MCP_TOKEN=dev-mcp go run ./cmd/jellyhere-server
 ```
 
 另一个终端启动模拟设备：
 
 ```bash
 cd server
-ORBBUDDY_DEVICE_URL='ws://127.0.0.1:8080/device?id=primary' \
-ORBBUDDY_DEVICE_TOKEN=dev-device go run ./cmd/mock-device
+JELLYHERE_DEVICE_URL='ws://127.0.0.1:8080/device?id=primary' \
+JELLYHERE_DEVICE_TOKEN=dev-device go run ./cmd/mock-device
 ```
 
 Android：用 Android Studio 打开 `android/`，或设置 `ANDROID_HOME` 后运行 `./gradlew :app:assembleDebug`。调试包允许明文 `ws://` 连接本机服务；正式包只接受 `wss://`。手机无需 USB 或无线 ADB 才能正常连接服务器。首次使用需手动安装 App、启用无障碍服务并保存连接配置。会话开启时显示前台通知、持有部分唤醒锁，网络切换时主动重连；**持续会话会增加耗电**，用 App 内“停止测试会话”可释放唤醒锁。用户保持会话开启时，App 会尝试在手机重启或更新后恢复前台会话；厂商后台限制仍可能阻止恢复。
@@ -66,7 +68,7 @@ Android：用 Android Studio 打开 `android/`，或设置 `ANDROID_HOME` 后运
 
 ## 部署
 
-Go 服务配置 `ORBBUDDY_LISTEN=127.0.0.1:18093`、`ORBBUDDY_DEVICE_TOKEN` 和 `ORBBUDDY_MCP_TOKEN`；两个令牌分别给手机和 MCP 客户端，保存在服务器 `/etc/orbbuddy/server.env`，不要提交到 Git。Nginx 负责 HTTPS/WSS。通用步骤见[自托管指南](docs/self-host.md)，上线时执行 `nginx -t` 后再 reload。
+Go 服务配置 `JELLYHERE_LISTEN=127.0.0.1:18093`、`JELLYHERE_DEVICE_TOKEN` 和 `JELLYHERE_MCP_TOKEN`；两个令牌分别给手机和 MCP 客户端，保存在服务器 `/etc/jellyhere/server.env`，不要提交到 Git。已有部署的 `ORBBUDDY_*` 环境变量仍受支持。Nginx 负责 HTTPS/WSS。通用步骤见[自托管指南](docs/self-host.md)，迁移步骤见[改名兼容说明](docs/rename-migration.md)。
 
 手机地址：`wss://你的域名/device?id=primary`
 
@@ -82,9 +84,9 @@ MCP 地址：`https://你的域名/mcp`
 
 目前**没有支付与下单确认流程**，不要让智能体执行付款或最终提交订单。悬浮球的开发测试授权码不代表订单授权。未来增加下单能力时，以手机端本地确认为准：智能体仅可准备草稿，最终下单/支付由用户在手机上确认；确认有短时效且只适用于当前订单摘要；取消或超时立即拒绝；完成后提供可行的撤销/售后入口。敏感输入只由用户在手机本地填写，不返回到 MCP。
 
-若 `device_status` 返回空列表，先在手机打开圆伴，确认测试会话已开启、无障碍服务已启用且会话通知仍在。部分厂商会限制后台运行，可使用 App 内“后台连接与省电设置”入口允许圆伴持续运行。服务器可用 `journalctl -u orbbuddy.service` 查看设备上下线时间；MCP 服务在线不代表手机一定在线。Android 的 Doze 可能暂停网络；即使使用前台服务也不能保证所有设备在长时间锁屏后立即可达，详见 [Android 官方说明](https://developer.android.com/training/monitoring-device-state/doze-standby)。
+若 `device_status` 返回空列表，先在手机打开果冻，确认测试会话已开启、无障碍服务已启用且会话通知仍在。部分厂商会限制后台运行，可使用 App 内“后台连接与省电设置”入口允许果冻持续运行。新安装可用 `journalctl -u jellyhere.service` 查看设备上下线时间；旧安装继续使用 `orbbuddy.service`。MCP 服务在线不代表手机一定在线。Android 的 Doze 可能暂停网络；即使使用前台服务也不能保证所有设备在长时间锁屏后立即可达，详见 [Android 官方说明](https://developer.android.com/training/monitoring-device-state/doze-standby)。
 
-在小米澎湃 OS 实测时，还需检查系统“应用信息”里的“自启动”“通知管理”和“省电策略”：允许自启动与通知，并将省电策略设为“无限制”。更新或重启后若会话没有自动恢复，重新打开圆伴一次。若连接反复上下线，检查手机日志中的 `accessibility service destroyed`、`device socket failed` 和服务器日志；系统重新绑定无障碍服务时，旧连接应停止重试。
+在小米澎湃 OS 实测时，还需检查系统“应用信息”里的“自启动”“通知管理”和“省电策略”：允许自启动与通知，并将省电策略设为“无限制”。更新或重启后若会话没有自动恢复，重新打开果冻一次。若连接反复上下线，检查手机日志中的 `accessibility service destroyed`、`device socket failed` 和服务器日志；系统重新绑定无障碍服务时，旧连接应停止重试。
 
 ## 参考资料
 

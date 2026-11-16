@@ -1,16 +1,16 @@
-# 圆伴 OrbBuddy：开源发展计划
+# 果冻 JellyHere：开源发展计划
 
 更新：2026-11-10。工作量是单人开发日粗估，包含实现、测试和文档，不包含外部审核等待。
 
 ## 定位与架构
 
-圆伴先做成**自托管的 Android 开发测试工具**：手机通过移动网络主动连接 Go relay，电脑上的智能体通过 HTTPS/MCP 按需读屏和测试。保持单进程 Go 服务、不持久化截图的轻量方案。
+JellyHere 先做成**自托管的 Android 开发测试工具**：手机通过移动网络主动连接 Go relay，电脑上的智能体通过 HTTPS/MCP 按需读屏和测试。保持单进程 Go 服务、不持久化截图的轻量方案。
 
 移动网络和常见家庭接入可能位于运营商级 NAT 后，不能假定用户有可入站公网地址；[RFC 6598](https://www.rfc-editor.org/info/rfc6598/)定义了运营商共享地址空间，[工信部门对“网络去 NAT”的解读](https://jxca.miit.gov.cn/zwgk/zcwj/zcjd/art/2024/art_790f9d4cdd584907b914aedcfc38cf0c.html)也指出 NAT44 大规模部署。部分网络已有公网可达的 IPv6，但是否能稳定入站要逐网验证。默认部署文档以已有 VPS/云主机的公网 HTTPS 入口为例，手机与电脑都只需主动发起出站连接。用户不一定要自己持有服务器，但跨网络使用始终需要可达的中转入口；当前项目没有公共中转服务，也没有可供陌生用户共用的多租户隔离。
 
 部署形态按顺序推进：本地 mock 设备用于开发演示；单用户自托管 relay 用于真实异地手机；等逐用户/逐设备凭据、隔离、限额与运维能力成熟后，再评估可选的共享托管 relay。共享 relay 是独立运营服务，不把维护者个人实例直接开放给社区。
 
-iOS 值得纳入项目，但按平台能力发布：先做用户启动的只读屏幕共享；自有 App 的动作通过明确的测试接口暴露；任意 App 的 UI 自动测试走 Mac/Xcode 设备实验室。服务端按设备报告 platform、capabilities、capture_mode，客户端据此决定可调用工具，不把 iOS 宣称为具备 Android 无障碍控制能力。
+iOS 值得纳入项目，但按平台能力发布：先做用户启动的只读屏幕共享；自有 App 的动作通过明确的测试接口暴露；任意 App 的 UI 自动测试走 Mac/Xcode 设备实验室。服务端按设备报告 platform、capabilities、capture_mode，客户端据此决定可调用工具，不把 iOS 宣称为具备 Android 无障碍控制能力。macOS、Windows、Linux 桌面端按各自的屏幕捕获与辅助功能接口分阶段验证，见[平台支持规划](platform-support.md)。
 
 ## 当前仓库基线
 
@@ -63,7 +63,7 @@ GitHub 目前没有 Release、公开 Issue 或规则集。CI 产物是签名可�
 | 自有 iOS App 的动作 | 被测 App 内的测试 SDK 或明确的 App Intents 暴露业务语义动作 | 只操作接入 App 与其明确开放的动作 |
 | 任意 App 的 UI 测试 | Mac + Xcode/XCUITest 或 Appium WebDriverAgent 的实验室适配器 | 需要 Mac、签名、开发者模式和设备测试链路；不作为手机独立通过移动网络运行的通用方案 |
 
-Apple 的 [iOS ScreenCaptureKit 示例](https://developer.apple.com/documentation/screencapturekit/capturing-screen-content-on-ios)要求 iOS 27+、系统选择器和用户屏幕录制授权；[XCUITest](https://developer.apple.com/documentation/xcode/testing)是开发测试框架，[App Intents](https://developer.apple.com/documentation/appintents)公开 App 自己实现的动作。[FaceTime 远程控制](https://support.apple.com/guide/iphone/request-give-remote-control-a-facetime-call-iph5d70f34a3/ios)是通话中的用户授权功能，并非圆伴可调用的跨 App 手势接口；[iPhone Mirroring](https://support.apple.com/en-us/120421)需要附近的 Mac，不符合异地移动网络场景。普通第三方 iOS App 目前没有已确认的公开接口，可像 Android 无障碍服务一样读取其他 App 元素树并注入任意全局手势。
+Apple 的 [iOS ScreenCaptureKit 示例](https://developer.apple.com/documentation/screencapturekit/capturing-screen-content-on-ios)要求 iOS 27+、系统选择器和用户屏幕录制授权；[XCUITest](https://developer.apple.com/documentation/xcode/testing)是开发测试框架，[App Intents](https://developer.apple.com/documentation/appintents)公开 App 自己实现的动作。[FaceTime 远程控制](https://support.apple.com/guide/iphone/request-give-remote-control-a-facetime-call-iph5d70f34a3/ios)是通话中的用户授权功能，并非果冻可调用的跨 App 手势接口；[iPhone Mirroring](https://support.apple.com/en-us/120421)需要附近的 Mac，不符合异地移动网络场景。普通第三方 iOS App 目前没有已确认的公开接口，可像 Android 无障碍服务一样读取其他 App 元素树并注入任意全局手势。
 
 iOS PoC 先选 iOS 27+ 路线；支持旧版系统的 ReplayKit 预计另需 4–7 开发日。验收：手机使用移动网络、电脑异地时，用户启动共享后，relay 能在 10 分钟内多次取得带采集时间的当前画面；用户停止共享后立即返回 capture_not_active；不对 tap、swipe、ui_tree 宣称支持。真机验证系统版本与后台行为后再决定正式版范围。
 

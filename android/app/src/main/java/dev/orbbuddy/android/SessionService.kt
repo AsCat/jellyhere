@@ -35,7 +35,7 @@ class SessionService : Service() {
         }
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
-            NotificationChannel(channelId, "圆伴测试会话", NotificationManager.IMPORTANCE_LOW)
+            NotificationChannel(channelId, "果冻测试会话", NotificationManager.IMPORTANCE_LOW)
         )
         val notification = buildNotification()
         if (Build.VERSION.SDK_INT >= 34) {
@@ -45,7 +45,7 @@ class SessionService : Service() {
         }
         if (wakeLock == null) {
             wakeLock = (getSystemService(POWER_SERVICE) as PowerManager)
-                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "OrbBuddy:TestingSession")
+                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "JellyHere:TestingSession")
                 .apply { setReferenceCounted(false) }
         }
         handler.removeCallbacks(renewWakeLock)
@@ -65,8 +65,8 @@ class SessionService : Service() {
         val keepAwake = prefs.getLong("keep_awake_until", 0L) > System.currentTimeMillis()
         val builder = Notification.Builder(this, channelId)
             .setSmallIcon(android.R.drawable.stat_notify_sync)
-            .setContentTitle(if (keepAwake) "圆伴临时保持亮屏" else if (apiActive) "圆伴 HTTPS 远程访问中" else "圆伴测试会话已开启")
-            .setContentText(if (keepAwake) "最长 30 分钟自动结束；点击打开圆伴，或点操作立即结束" else if (apiActive) "点击打开圆伴，可立即撤销授权" else "后台保持连接会增加耗电；点击可停止会话")
+            .setContentTitle(if (keepAwake) "果冻临时保持亮屏" else if (apiActive) "果冻 HTTPS 远程访问中" else "果冻测试会话已开启")
+            .setContentText(if (keepAwake) "最长 30 分钟自动结束；点击打开果冻，或点操作立即结束" else if (apiActive) "点击打开果冻，可立即撤销授权" else "后台保持连接会增加耗电；点击可停止会话")
             .setContentIntent(openApp)
             .setOngoing(true)
         if (keepAwake) {

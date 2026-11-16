@@ -79,7 +79,7 @@ class OrbOverlay(
             this.paused = paused
             this.connected = status == "已连接"
             this.character = OrbCharacter.from(prefs.getString("orb_character", null))
-            contentDescription = "圆伴悬浮球，${if (paused) "已暂停" else if (apiActive) "HTTPS 远程访问中" else status}。点击打开会话控制，长按开启无线调试，拖动可移动"
+            contentDescription = "果冻悬浮球，${if (paused) "已暂停" else if (apiActive) "HTTPS 远程访问中" else status}。点击打开会话控制，长按开启无线调试，拖动可移动"
             invalidate()
         }
         menuStatus?.text = statusLabel()
@@ -116,7 +116,7 @@ class OrbOverlay(
         paused && apiActive -> "HTTPS 已授权 · 暂停中"
         paused -> "远程访问已暂停"
         apiActive -> "HTTPS 远程访问中"
-        else -> "圆伴 · $connectionStatus"
+        else -> "果冻 · $connectionStatus"
     }
 
     private fun show() {
@@ -147,7 +147,7 @@ class OrbOverlay(
                 receiverRegistered = true
             }
         } catch (e: RuntimeException) {
-            Log.w("OrbBuddy", "cannot show floating orb", e)
+            Log.w("JellyHere", "cannot show floating orb", e)
         }
     }
 
@@ -285,7 +285,7 @@ class OrbOverlay(
             menuStatus = null
             pauseAction = null
             codeLine = null
-            Log.w("OrbBuddy", "cannot show orb controls", e)
+            Log.w("JellyHere", "cannot show orb controls", e)
         }
     }
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Use OrbBuddy to enable Android wireless debugging and connect local adb.
+"""Use JellyHere to enable Android wireless debugging and connect local adb.
 
-The script reads the MCP URL and token from ~/.config/orbbuddy/ by default.
+The script reads the MCP URL and token from ~/.config/jellyhere/ by default.
+Existing ~/.config/orbbuddy/ settings remain supported.
 It never prints the token. Running the script is an explicit request to open and,
 when necessary, enable Android's Wireless debugging setting on the selected phone.
 """
@@ -21,9 +22,8 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-DEFAULT_URL_FILE = Path("~/.config/orbbuddy/mcp-url").expanduser()
-DEFAULT_TOKEN_FILE = Path("~/.config/orbbuddy/mcp-token").expanduser()
-DEFAULT_DEVICE_FILE = Path("~/.config/orbbuddy/default-device").expanduser()
+CONFIG_DIR = Path("~/.config/jellyhere").expanduser()
+LEGACY_CONFIG_DIR = Path("~/.config/orbbuddy").expanduser()
 ENDPOINT_RE = re.compile(r"(?<!\d)(?:\d{1,3}\.){3}\d{1,3}:\d{2,5}(?!\d)")
 
 
@@ -62,14 +62,14 @@ class OrbClient:
             with urllib.request.urlopen(request, timeout=30) as response:
                 payload = json.load(response)
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as error:
-            raise OrbError(f"OrbBuddy request failed: {error}") from error
+            raise OrbError(f"JellyHere request failed: {error}") from error
         if "error" in payload:
-            raise OrbError(f"OrbBuddy MCP error: {payload['error'].get('message', 'unknown error')}")
+            raise OrbError(f"JellyHere MCP error: {payload['error'].get('message', 'unknown error')}")
         result = payload.get("result", {})
         content = result.get("content", [])
         for item in content:
             if item.get("type") == "text" and result.get("isError"):
-                raise OrbError(item.get("text", "OrbBuddy tool failed"))
+                raise OrbError(item.get("text", "JellyHere tool failed"))
         return content
 
     def screen(self) -> dict[str, Any]:
@@ -244,7 +244,7 @@ def open_wireless_debugging(client: OrbClient) -> dict[str, Any]:
         if samsung_screen is not None:
             return samsung_screen
     except OrbError:
-        # OrbBuddy 0.4.1 and earlier do not expose the direct settings action.
+        # OrbBuddy 0.4.1 and earlier did not expose the direct settings action.
         pass
 
     client.call("press_key", {"deviceId": client.device_id, "key": "home"})
@@ -348,36 +348,44 @@ def connect_adb(endpoint: str) -> None:
     print(f"ADB connected: {matching}")
 
 
+def config_file(name: str, env_name: str, legacy_env_name: str) -> Path:
+    configured = os.environ.get(env_name) or os.environ.get(legacy_env_name)
+    if configured:
+        return Path(configured).expanduser()
+    current = CONFIG_DIR / name
+    return current if current.exists() else LEGACY_CONFIG_DIR / name
+
+
 def load_token() -> str:
-    token = os.environ.get("ORBBUDDY_MCP_TOKEN", "").strip()
+    token = (os.environ.get("JELLYHERE_MCP_TOKEN") or os.environ.get("ORBBUDDY_MCP_TOKEN", "")).strip()
     if token:
         return token
-    token_file = Path(os.environ.get("ORBBUDDY_MCP_TOKEN_FILE", str(DEFAULT_TOKEN_FILE))).expanduser()
+    token_file = config_file("mcp-token", "JELLYHERE_MCP_TOKEN_FILE", "ORBBUDDY_MCP_TOKEN_FILE")
     try:
         return token_file.read_text(encoding="utf-8").strip()
     except OSError as error:
-        raise OrbError(f"cannot read OrbBuddy token file: {token_file}") from error
+        raise OrbError(f"cannot read JellyHere token file: {token_file}") from error
 
 
 def load_url() -> str:
-    url = os.environ.get("ORBBUDDY_MCP_URL", "").strip()
+    url = (os.environ.get("JELLYHERE_MCP_URL") or os.environ.get("ORBBUDDY_MCP_URL", "")).strip()
     if not url:
-        url_file = Path(os.environ.get("ORBBUDDY_MCP_URL_FILE", str(DEFAULT_URL_FILE))).expanduser()
+        url_file = config_file("mcp-url", "JELLYHERE_MCP_URL_FILE", "ORBBUDDY_MCP_URL_FILE")
         try:
             url = url_file.read_text(encoding="utf-8").strip()
         except OSError as error:
-            raise OrbError(f"set ORBBUDDY_MCP_URL or create {url_file}") from error
+            raise OrbError(f"set JELLYHERE_MCP_URL or create {url_file}") from error
     if not url.startswith("https://") or not url.endswith("/mcp"):
         raise OrbError("MCP URL must be https://.../mcp")
     return url
 
 
 def default_device() -> str | None:
-    env = os.environ.get("ORBBUDDY_DEFAULT_DEVICE", "").strip()
+    env = (os.environ.get("JELLYHERE_DEFAULT_DEVICE") or os.environ.get("ORBBUDDY_DEFAULT_DEVICE", "")).strip()
     if env:
         return env
     try:
-        return DEFAULT_DEVICE_FILE.read_text(encoding="utf-8").strip() or None
+        return config_file("default-device", "JELLYHERE_DEFAULT_DEVICE_FILE", "ORBBUDDY_DEFAULT_DEVICE_FILE").read_text(encoding="utf-8").strip() or None
     except FileNotFoundError:
         return None
 
@@ -387,22 +395,22 @@ def select_device(devices: list[dict[str, Any]], requested: str | None) -> str:
     if requested:
         device = next((item for item in online if item.get("id") == requested), None)
         if device is None:
-            raise OrbError(f"OrbBuddy device {requested!r} is offline; online: " +
+            raise OrbError(f"JellyHere device {requested!r} is offline; online: " +
                            ", ".join(str(item.get("id")) for item in online))
         if device.get("paused"):
-            raise OrbError(f"OrbBuddy device {requested!r} is paused")
+            raise OrbError(f"JellyHere device {requested!r} is paused")
         return requested
     if len(online) != 1:
         ids = ", ".join(str(item.get("id")) for item in online) or "none"
         raise OrbError(f"specify --device or configure default-device; online devices: {ids}")
     if online[0].get("paused"):
-        raise OrbError(f"OrbBuddy device {online[0]['id']!r} is paused")
+        raise OrbError(f"JellyHere device {online[0]['id']!r} is paused")
     return str(online[0]["id"])
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--device", help="OrbBuddy device ID; overrides configured default")
+    parser.add_argument("--device", help="JellyHere device ID; overrides configured default")
     parser.add_argument("--no-adb", action="store_true", help="only enable and print the endpoint")
     parser.add_argument("--list", action="store_true", help="list connected phones without operating them")
     args = parser.parse_args()

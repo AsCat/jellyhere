@@ -4,6 +4,8 @@ This file records changes from the first public preview onward. Until a tagged r
 
 ## Unreleased
 
+- Rename the project to JellyHere (果冻), with Android as the first device platform and iOS/desktop capability plans documented.
+- Preserve the Android application ID, release signing identity, old service template, and `ORBBUDDY_*` configuration as migration aliases.
 - Android client with mobile-network WSS relay, accessibility tree, on-demand screenshots, test gestures, and a local pause control.
 - Go relay with Streamable HTTP MCP, temporary HTTPS authorization, a read-only browser viewer, and a public fixed-JSON health endpoint.
 - Self-hosted deployment examples and an open-source release plan.

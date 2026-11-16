@@ -77,7 +77,7 @@ class OrbAccessibilityService : AccessibilityService() {
             }
             if (prefs().getBoolean("enabled", false) && socket != null &&
                 SystemClock.elapsedRealtime() - lastServerMessageAt > 75_000L) {
-                Log.w("OrbBuddy", "server heartbeat missing; reconnecting")
+                Log.w("JellyHere", "server heartbeat missing; reconnecting")
                 reconnect()
             }
             handler.postDelayed(this, 30_000L)
@@ -113,7 +113,7 @@ class OrbAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         prefs().edit().remove("keep_awake_until").apply()
-        Log.i("OrbBuddy", "accessibility service connected")
+        Log.i("JellyHere", "accessibility service connected")
         if (!receiverRegistered) {
             val filter = IntentFilter().apply {
                 addAction(ACTION_RELOAD)
@@ -174,7 +174,7 @@ class OrbAccessibilityService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
-        Log.i("OrbBuddy", "accessibility service destroyed")
+        Log.i("JellyHere", "accessibility service destroyed")
         destroyed = true
         val oldSocket = socket
         socket = null
@@ -248,7 +248,7 @@ class OrbAccessibilityService : AccessibilityService() {
                         // HTTP API grants belong to one relay connection.
                         prefs().edit().putBoolean("api_auth_active", false).remove("api_grant_id").apply()
                         refreshSessionNotification()
-                        Log.i("OrbBuddy", "device socket connected")
+                        Log.i("JellyHere", "device socket connected")
                         setStatus("已连接")
                     }
                 }
@@ -264,12 +264,12 @@ class OrbAccessibilityService : AccessibilityService() {
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                Log.w("OrbBuddy", "device socket failed: ${t.message}")
+                Log.w("JellyHere", "device socket failed: ${t.message}")
                 handler.post { scheduleReconnect(webSocket) }
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                Log.i("OrbBuddy", "device socket closed: $code")
+                Log.i("JellyHere", "device socket closed: $code")
                 handler.post { scheduleReconnect(webSocket) }
             }
         })
@@ -416,7 +416,7 @@ class OrbAccessibilityService : AccessibilityService() {
         try {
             startService(Intent(this, SessionService::class.java))
         } catch (e: RuntimeException) {
-            Log.w("OrbBuddy", "could not refresh session notification: ${e.message}")
+            Log.w("JellyHere", "could not refresh session notification: ${e.message}")
         }
     }
 
@@ -648,7 +648,7 @@ class OrbAccessibilityService : AccessibilityService() {
         stopKeepAwake()
         try {
             @Suppress("DEPRECATION")
-            val wakeLock = power.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK, "OrbBuddy:KeepScreenOn")
+            val wakeLock = power.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK, "JellyHere:KeepScreenOn")
             val durationMs = minutes * 60_000L
             wakeLock.acquire(durationMs)
             keepAwakeLock = wakeLock
@@ -688,7 +688,7 @@ class OrbAccessibilityService : AccessibilityService() {
             @Suppress("DEPRECATION")
             val wakeLock = power.newWakeLock(
                 PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
-                "OrbBuddy:WakeScreen"
+                "JellyHere:WakeScreen"
             )
             wakeLock.acquire(3_000L)
             handler.postDelayed({ if (wakeLock.isHeld) wakeLock.release() }, 1_500L)

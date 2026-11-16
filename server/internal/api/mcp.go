@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/AsCat/orbbuddy/server/internal/bridge"
+	"github.com/AsCat/jellyhere/server/internal/bridge"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -95,8 +95,8 @@ func callDevice(ctx context.Context, hub *bridge.Hub, id, method string, params 
 }
 
 func NewMCPServer(hub *bridge.Hub) *mcp.Server {
-	s := mcp.NewServer(&mcp.Implementation{Name: "orbbuddy", Version: "0.4.5"}, &mcp.ServerOptions{
-		Instructions: "OrbBuddy is for Android development testing. Read the screen before element taps and read it again after the UI changes. Ask the user before entering sensitive data or taking a final order, purchase, or payment action; never treat an ordinary tap approval as payment authorization.",
+	s := mcp.NewServer(&mcp.Implementation{Name: "jellyhere", Version: "0.4.6"}, &mcp.ServerOptions{
+		Instructions: "JellyHere is for Android development testing. Read the screen before element taps and read it again after the UI changes. Ask the user before entering sensitive data or taking a final order, purchase, or payment action; never treat an ordinary tap approval as payment authorization.",
 	})
 	mcp.AddTool(s, &mcp.Tool{Name: "device_status", Description: "List connected Android devices.", Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true}},
 		func(context.Context, *mcp.CallToolRequest, struct{}) (*mcp.CallToolResult, any, error) {

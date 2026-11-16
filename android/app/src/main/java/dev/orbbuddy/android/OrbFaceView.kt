@@ -12,7 +12,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 enum class OrbCharacter(val label: String, val description: String) {
-    YUANYUAN("圆圆", "经典蓝色圆伴"),
+    YUANYUAN("圆圆", "经典蓝色果冻"),
     YAYA("芽芽", "绿叶和种子形伙伴"),
     XINGZI("星星", "暖黄色星形伙伴");
 

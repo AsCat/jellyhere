@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "OrbBuddy HTTPS API",
+    "title": "JellyHere HTTPS API",
     "version": "0.3.0",
     "description": "手机主动连接 WSS relay；HTTPS 会话需在手机端生成一次性口令。原有 /mcp 和 /device 协议不变。"
   },

@@ -15,7 +15,7 @@ class BootReceiver : BroadcastReceiver() {
         try {
             context.startForegroundService(Intent(context, SessionService::class.java))
         } catch (e: RuntimeException) {
-            Log.w("OrbBuddy", "cannot restore testing session", e)
+            Log.w("JellyHere", "cannot restore testing session", e)
         }
     }
 }

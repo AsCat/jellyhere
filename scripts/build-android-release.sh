@@ -2,20 +2,21 @@
 set -euo pipefail
 
 repo_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-keystore=${ORBBUDDY_RELEASE_KEYSTORE:-$HOME/Library/Application Support/OrbBuddy/signing/orbbuddy-release.p12}
+keystore=${JELLYHERE_RELEASE_KEYSTORE:-${ORBBUDDY_RELEASE_KEYSTORE:-$HOME/Library/Application Support/OrbBuddy/signing/orbbuddy-release.p12}}
 
 [[ -f $keystore ]] || { echo "Release keystore not found: $keystore" >&2; exit 1; }
 
-if [[ -z ${ORBBUDDY_RELEASE_STORE_PASSWORD:-} ]]; then
+password=${JELLYHERE_RELEASE_STORE_PASSWORD:-${ORBBUDDY_RELEASE_STORE_PASSWORD:-}}
+if [[ -z $password ]]; then
     if ! command -v security >/dev/null 2>&1; then
-        echo "Set ORBBUDDY_RELEASE_STORE_PASSWORD or use macOS Keychain." >&2
+        echo "Set JELLYHERE_RELEASE_STORE_PASSWORD or use macOS Keychain." >&2
         exit 1
     fi
-    ORBBUDDY_RELEASE_STORE_PASSWORD=$(security find-generic-password \
+    password=$(security find-generic-password \
         -a AsCat/orbbuddy -s 'OrbBuddy Android release keystore' -w)
 fi
-export ORBBUDDY_RELEASE_KEYSTORE="$keystore" ORBBUDDY_RELEASE_STORE_PASSWORD
-trap 'unset ORBBUDDY_RELEASE_STORE_PASSWORD' EXIT
+export JELLYHERE_RELEASE_KEYSTORE="$keystore" JELLYHERE_RELEASE_STORE_PASSWORD="$password"
+trap 'unset JELLYHERE_RELEASE_STORE_PASSWORD' EXIT
 
 if [[ -z ${ANDROID_HOME:-} && -d $HOME/Library/Android/sdk ]]; then
     export ANDROID_HOME="$HOME/Library/Android/sdk"
