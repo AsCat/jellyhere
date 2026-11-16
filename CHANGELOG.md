@@ -4,6 +4,7 @@ This file records changes from the first public preview onward. Until a tagged r
 
 ## Unreleased
 
+- Anchor the compact activity bubble beside the mascot, above it when space permits and below near the top edge.
 - Dock the mascot immediately after a drag; move its activity bubble to a compact top-edge position with smaller text.
 - Add the `jellyhere` CLI with `doctor`, `device list`, and `adb connect` commands; retain `orb-adb` compatibility.
 - Refine the Android star mascot with rounded jelly highlights, deeper edge docking, action bubbles, and a direct pause control in the bubble and notification.

@@ -49,7 +49,7 @@
     .screen[data-mode="swiping"] .mascot .star { animation:swipe .85s ease-in-out infinite; }
     .screen[data-mode="typing"] .mascot .star { animation:type .52s ease-in-out infinite; }
     .screen[data-mode="done"] .mascot .star { animation:happy .65s ease-in-out 2; }
-    .bubble { position:absolute; z-index:6; right:12px; top:48px; width:160px; padding:8px 10px; border-radius:13px; background:#fff; box-shadow:0 10px 24px #55607825; border:1px solid #edf0f6; animation:appear .28s cubic-bezier(.2,.85,.2,1.2); }
+    .bubble { position:absolute; z-index:6; right:12px; top:calc(53% - 100px); width:160px; padding:8px 10px; border-radius:13px; background:#fff; box-shadow:0 10px 24px #55607825; border:1px solid #edf0f6; animation:appear .28s cubic-bezier(.2,.85,.2,1.2); }
     .bubble[hidden] { display:none; }
     .bubble-title { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:800; }
     .indicator { width:9px; height:9px; border-radius:50%; background:var(--blue); box-shadow:0 0 0 4px #e9edff; }
@@ -166,7 +166,7 @@
           <button type="button" data-action="paused">⏸ 暂停远程访问</button>
           <button type="button" data-action="resume">▶ 恢复访问</button>
         </div>
-        <div class="note"><strong>交互原则：</strong>角色松手后立即贴边；紧凑气泡贴在屏幕上方同侧，只显示动作类型与结果，不展示屏幕文字或输入内容。点击“暂停”会阻止后续远程请求；已经交给 Android 系统执行的手势，可能需要等待它结束。远程截图时，真实 App 会临时隐藏角色和气泡。</div>
+        <div class="note"><strong>交互原则：</strong>角色松手后立即贴边；紧凑气泡跟着星星，优先在上方同侧，顶部空间不足时放到下方。它只显示动作类型与结果，不展示屏幕文字或输入内容。点击“暂停”会阻止后续远程请求；已经交给 Android 系统执行的手势，可能需要等待它结束。远程截图时，真实 App 会临时隐藏角色和气泡。</div>
         <div class="legend"><span><b>查看：</b>浮起与扫描光圈</span><span><b>点击：</b>跳跃与触点波纹</span><span><b>滑动：</b>倾斜与运动轨迹</span><span><b>输入：</b>轻快敲击节奏</span></div>
       </section>
     </div>

@@ -18,7 +18,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
-import android.view.WindowInsets
 import android.view.animation.DecelerateInterpolator
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -433,9 +432,6 @@ class OrbOverlay(
         val width = dp(160)
         val left = params.x + size / 2 < screen.x / 2
         val x = if (left) dp(8) else screen.x - width - dp(8)
-        val statusBarHeight = manager.currentWindowMetrics.windowInsets
-            .getInsetsIgnoringVisibility(WindowInsets.Type.statusBars()).top
-        val y = maxOf(statusBarHeight, dp(24)) + dp(8)
         val panel = LinearLayout(service).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(10), dp(6), dp(10), dp(6))
@@ -463,6 +459,13 @@ class OrbOverlay(
             setTextColor(Color.rgb(172, 86, 39))
             setOnClickListener { onPauseToggle() }
         }.also(panel::addView)
+        panel.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
+        val bubbleHeight = panel.measuredHeight
+        val gap = dp(8)
+        val above = params.y - bubbleHeight - gap
+        val y = if (above >= dp(8)) above else
+            (params.y + size + gap).coerceAtMost((screen.y - bubbleHeight - dp(32)).coerceAtLeast(dp(8)))
         try {
             manager.addView(panel, layoutParams(width, WindowManager.LayoutParams.WRAP_CONTENT,
                 x.coerceIn(0, (screen.x - width).coerceAtLeast(0)), y))
