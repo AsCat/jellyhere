@@ -8,7 +8,7 @@ Android `applicationId` 和 Kotlin 包名仍为 `dev.orbbuddy.android`，发布�
 
 ## 已有服务器
 
-当前实例可继续使用 `/opt/orbbuddy`、`/etc/orbbuddy/server.env`、`orbbuddy.service`、旧 Nginx 站点文件和原域名 `orb.yuanxuyinli.com`。新 Go 二进制继续接受 `ORBBUDDY_DEVICE_TOKEN`、`ORBBUDDY_MCP_TOKEN`、`ORBBUDDY_LISTEN`；新的 `JELLYHERE_*` 名称优先。已有服务只需把新构建的二进制安装到旧 `ExecStart` 指定的位置，按原升级与回滚步骤重启。更改系统目录或域名是单独的运维迁移，不是这次改名的前提。新用户按[自托管指南](self-host.md)使用 `jellyhere.service` 和 `/etc/jellyhere`。
+已有安装可继续使用旧的 `/opt/orbbuddy`、`/etc/orbbuddy/server.env`、`orbbuddy.service` 和原域名。新 Go 二进制继续接受 `ORBBUDDY_DEVICE_TOKEN`、`ORBBUDDY_MCP_TOKEN`、`ORBBUDDY_LISTEN`；新的 `JELLYHERE_*` 名称优先。已有服务只需把新构建的二进制安装到旧 `ExecStart` 指定的位置，按原升级与回滚步骤重启。更改系统目录或域名是单独的运维迁移，不是这次改名的前提。新用户按[自托管指南](self-host.md)使用 `jellyhere.service` 和 `/etc/jellyhere`。
 
 ## MCP 与电脑快捷工具
 

@@ -3,8 +3,10 @@ package dev.orbbuddy.android
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Shader
 import android.os.PowerManager
 import android.os.SystemClock
 import android.view.View
@@ -21,7 +23,7 @@ enum class OrbCharacter(val label: String, val description: String) {
     }
 }
 
-enum class OrbReaction { LOOK, TAP, SWIPE }
+enum class OrbReaction { LOOK, TAP, SWIPE, TYPE }
 
 /** Small vector characters share one renderer, so previews and the overlay always match. */
 class OrbFaceView(context: Context, private val animated: Boolean = true) : View(context) {
@@ -49,7 +51,7 @@ class OrbFaceView(context: Context, private val animated: Boolean = true) : View
         super.onDraw(canvas)
         val now = SystemClock.uptimeMillis()
         val currentReaction = reaction
-        val reactionDuration = if (currentReaction == OrbReaction.LOOK) 1500L else 900L
+        val reactionDuration = if (currentReaction == OrbReaction.LOOK) 1600L else 1100L
         val elapsed = now - reactionStarted
         val progress = if (currentReaction != null && elapsed in 0..reactionDuration) {
             elapsed.toFloat() / reactionDuration
@@ -62,9 +64,15 @@ class OrbFaceView(context: Context, private val animated: Boolean = true) : View
         canvas.scale(width / 72f, height / 72f)
         canvas.scale(breath, breath, 36f, 36f)
         if (currentReaction == OrbReaction.TAP && progress < 1f) {
-            canvas.translate(0f, -6f * sin(Math.PI * progress).toFloat())
+            canvas.translate(0f, -13f * sin(Math.PI * progress).toFloat())
         } else if (currentReaction == OrbReaction.SWIPE && progress < 1f) {
-            canvas.rotate(reactionDirection * 12f * sin(Math.PI * progress).toFloat(), 36f, 36f)
+            canvas.rotate(reactionDirection * 22f * sin(Math.PI * progress).toFloat(), 36f, 36f)
+            canvas.translate(reactionDirection * 5f * sin(Math.PI * progress).toFloat(), 0f)
+        } else if (currentReaction == OrbReaction.TYPE && progress < 1f) {
+            canvas.translate(0f, -6f * sin(6 * Math.PI * progress).toFloat())
+        } else if (currentReaction == OrbReaction.LOOK && progress < 1f) {
+            val scanScale = 1f + .11f * sin(Math.PI * progress).toFloat()
+            canvas.scale(scanScale, scanScale, 36f, 36f)
         }
         when (character) {
             OrbCharacter.YUANYUAN -> {
@@ -117,26 +125,43 @@ class OrbFaceView(context: Context, private val animated: Boolean = true) : View
                 canvas.drawOval(22f, 27f, 35f, 37f, paint)
             }
             OrbCharacter.XINGZI -> {
-                // The whole body is a five-pointed star, rather than a round face with a badge.
-                val star = Path()
+                // Keep the existing star proportions, with soft tips and a jelly highlight.
+                val points = ArrayList<Pair<Float, Float>>(10)
                 for (i in 0 until 10) {
                     val angle = -Math.PI / 2 + i * Math.PI / 5
                     val radius = if (i % 2 == 0) 33.0 else 23.0
-                    val x = 36 + cos(angle) * radius
-                    val y = 37 + sin(angle) * radius
-                    if (i == 0) star.moveTo(x.toFloat(), y.toFloat()) else star.lineTo(x.toFloat(), y.toFloat())
+                    points.add(Pair((36 + cos(angle) * radius).toFloat(), (37 + sin(angle) * radius).toFloat()))
+                }
+                val star = Path()
+                for (i in points.indices) {
+                    val point = points[i]
+                    val previous = points[(i + 9) % 10]
+                    val next = points[(i + 1) % 10]
+                    val softness = if (i % 2 == 0) .22f else .12f
+                    val entryX = point.first + (previous.first - point.first) * softness
+                    val entryY = point.second + (previous.second - point.second) * softness
+                    val exitX = point.first + (next.first - point.first) * softness
+                    val exitY = point.second + (next.second - point.second) * softness
+                    if (i == 0) star.moveTo(entryX, entryY) else star.lineTo(entryX, entryY)
+                    star.quadTo(point.first, point.second, exitX, exitY)
                 }
                 star.close()
                 paint.style = Paint.Style.FILL
-                paint.color = if (paused) Color.rgb(165, 179, 190) else Color.rgb(255, 211, 99)
+                paint.shader = if (paused) null else LinearGradient(17f, 5f, 57f, 68f,
+                    intArrayOf(Color.rgb(255, 248, 211), Color.rgb(255, 221, 119), Color.rgb(255, 185, 81)),
+                    null, Shader.TileMode.CLAMP)
+                paint.color = if (paused) Color.rgb(165, 179, 190) else Color.WHITE
                 canvas.drawPath(star, paint)
+                paint.shader = null
                 paint.style = Paint.Style.STROKE
                 paint.strokeWidth = 2.5f
                 paint.color = if (paused) Color.rgb(115, 125, 137) else Color.rgb(216, 145, 39)
                 canvas.drawPath(star, paint)
                 paint.style = Paint.Style.FILL
-                paint.color = if (paused) Color.rgb(197, 207, 215) else Color.rgb(255, 239, 177)
-                canvas.drawOval(24f, 25f, 34f, 32f, paint)
+                paint.color = if (paused) Color.rgb(197, 207, 215) else Color.argb(195, 255, 255, 239)
+                canvas.drawOval(20f, 18f, 47f, 31f, paint)
+                paint.color = if (paused) Color.rgb(197, 207, 215) else Color.WHITE
+                canvas.drawOval(24f, 25f, 34f, 31f, paint)
             }
         }
         paint.style = Paint.Style.FILL
@@ -167,10 +192,11 @@ class OrbFaceView(context: Context, private val animated: Boolean = true) : View
         canvas.drawArc(29f, 36f, 43f, 49f, 20f, 140f, false, paint)
         if (looking) {
             paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 2f
+            paint.strokeWidth = 3f
             paint.color = Color.rgb(255, 255, 255)
             val sweep = 45f + 160f * progress
             canvas.drawArc(6f, 7f, 66f, 67f, sweep, 24f, false, paint)
+            canvas.drawArc(11f, 12f, 61f, 62f, sweep + 150f, 16f, false, paint)
         }
         paint.style = Paint.Style.FILL
         paint.color = Color.WHITE

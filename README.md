@@ -8,7 +8,8 @@ JellyHere 是连接个人设备与 AI 智能体的开源项目。首版支持 An
 
 - `android/`：首个设备端，支持 Android 11+。用户手动启用无障碍服务，填写 `wss://` 地址和设备令牌，开启或停止测试会话；可选卡通悬浮球提供手机端暂停入口。
 - `server/`：单个 Go 进程，接收手机 WebSocket 长连接，并提供 Streamable HTTP MCP 接口；不持久化屏幕内容。
-- `deploy/`：systemd 与 Nginx 部署模板。维护者实例的入口为 `orb.yuanxuyinli.com`，Go 只监听本机端口。
+- `deploy/`：systemd 与 Nginx 部署模板。用户配置自己的域名，Go 只监听本机端口。
+- `tools/jellyhere`：电脑端 CLI，可检查设备和按需恢复无线调试；旧 `orb-adb` 命令继续兼容。
 
 ## 运行原理
 
@@ -18,7 +19,7 @@ Android 无障碍服务 ── WSS/移动网络 ──> 公网可达的 Go relay
 电脑 Codex / WorkBuddy ── HTTPS MCP ────────────┘
 ```
 
-**使用者必须有自己的公网 IP 吗？**不必。手机和电脑都主动向中转入口发起出站连接；中转入口可部署在已有 VPS、云主机，或由未来的托管服务提供。当前开源版使用全局设备/MCP 令牌，适合一个人自托管，**不支持多个互不信任的用户共用同一实例**。维护者域名是个人实例，不是公共中转服务。详见[部署方式与步骤](docs/self-host.md)。
+**使用者必须有自己的公网 IP 吗？**不必。手机和电脑都主动向中转入口发起出站连接；中转入口可部署在已有 VPS、云主机，或由未来的托管服务提供。当前开源版使用全局设备/MCP 令牌，适合一个人自托管，**不支持多个互不信任的用户共用同一实例**。本项目目前不提供公共中转服务。详见[部署方式与步骤](docs/self-host.md)。
 
 手机断线后自动退避重连。`get_screen` 默认读取当前无障碍节点树及压缩 JPEG；可用 `includeImage=false` 不取图片、`treeMode=compact` 返回精简元素列表，或设置 `maxImageEdge` 为 320–1280 像素。`tap_element` 使用该次读屏返回的 `revision` 与节点 `path`，界面变化后必须重新读屏。截图被 Android 拒绝或安全窗口遮挡时，仍可返回可见的节点树和 `imageError`。
 
@@ -74,11 +75,13 @@ Go 服务配置 `JELLYHERE_LISTEN=127.0.0.1:18093`、`JELLYHERE_DEVICE_TOKEN` �
 
 MCP 地址：`https://你的域名/mcp`
 
-安装与验收见 [docs/quickstart.md](docs/quickstart.md)，客户端配置见 [docs/client-setup.md](docs/client-setup.md)，手机快捷动作和 `orb-adb` 见 [快捷操作与多设备](docs/shortcuts.md)。发布签名与验证见 [Android 发布签名](docs/release-signing.md)。开源版本路线和 iOS 可行性见 [开源发展计划](docs/open-source-plan.md)，既有功能进度见 [实施路线](docs/roadmap.md)。
+安装与验收见 [docs/quickstart.md](docs/quickstart.md)，客户端配置见 [docs/client-setup.md](docs/client-setup.md)，手机快捷动作和 `jellyhere` CLI 见 [快捷操作与多设备](docs/shortcuts.md)。发布签名与验证见 [Android 发布签名](docs/release-signing.md)。开源版本路线和 iOS 可行性见 [开源发展计划](docs/open-source-plan.md)，可选托管版见 [SaaS 架构草案](docs/saas-architecture.md)，既有功能进度见 [实施路线](docs/roadmap.md)。
+
+电脑端可执行 `./scripts/install-cli.sh`，随后使用 `jellyhere doctor`、`jellyhere device list` 和 `jellyhere adb connect --device samsung`。仓库根目录的 [AGENTS.md](AGENTS.md) 会让在本项目工作的智能体识别这些命令；跨项目的智能体可在自己的工作目录添加相同约定。CLI 不代替 MCP 工具，`adb connect` 仍需要电脑与无线调试端点网络互通。
 
 ## 当前边界与下一步
 
-标准 HTTPS API 与使用说明已加入服务首页 https://orb.yuanxuyinli.com/ ，机器可读契约在 https://orb.yuanxuyinli.com/openapi.json 。手机端可生成短时一次性口令，分别授予只读或指定可调试 App 的测试控制；接口、一次性截图链接、错误与回滚见 [HTTPS API 说明](docs/https-api.md)。原 MCP 入口继续独立运行。
+标准 HTTPS API 与使用说明位于自托管实例首页 `https://你的域名/`，机器可读契约位于同一域名的 `/openapi.json`。手机端可生成短时一次性口令，分别授予只读或指定可调试 App 的测试控制；接口、一次性截图链接、错误与回滚见 [HTTPS API 说明](docs/https-api.md)。原 MCP 入口继续独立运行。
 
 这是面向个人开发测试的首版。无障碍服务能读取的节点由目标 App 决定；`FLAG_SECURE` 等受保护窗口不能保证截图。Android 11+ 的包可见性限制会影响应用信息查询；当前安装包申请 `QUERY_ALL_PACKAGES`，适合开发者侧载，若发布到 Google Play 需按政策重新设计该功能。
 

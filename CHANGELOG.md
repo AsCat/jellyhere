@@ -4,6 +4,9 @@ This file records changes from the first public preview onward. Until a tagged r
 
 ## Unreleased
 
+- Add the `jellyhere` CLI with `doctor`, `device list`, and `adb connect` commands; retain `orb-adb` compatibility.
+- Refine the Android star mascot with rounded jelly highlights, deeper edge docking, action bubbles, and a direct pause control in the bubble and notification.
+- Remove private deployment domain and instance-specific Nginx files from the public repository; use same-origin OpenAPI and self-hosting examples.
 - Rename the project to JellyHere (果冻), with Android as the first device platform and iOS/desktop capability plans documented.
 - Preserve the Android application ID, release signing identity, old service template, and `ORBBUDDY_*` configuration as migration aliases.
 - Android client with mobile-network WSS relay, accessibility tree, on-demand screenshots, test gestures, and a local pause control.

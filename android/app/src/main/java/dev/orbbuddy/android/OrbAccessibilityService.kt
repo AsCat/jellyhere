@@ -48,6 +48,7 @@ class OrbAccessibilityService : AccessibilityService() {
         const val ACTION_STATE_CHANGED = "dev.orbbuddy.android.STATE_CHANGED"
         const val ACTION_LOCAL_REVOKE = "dev.orbbuddy.android.LOCAL_REVOKE"
         const val ACTION_STOP_KEEP_AWAKE = "dev.orbbuddy.android.STOP_KEEP_AWAKE"
+        const val ACTION_TOGGLE_PAUSE = "dev.orbbuddy.android.TOGGLE_PAUSE"
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -107,6 +108,7 @@ class OrbAccessibilityService : AccessibilityService() {
                 refreshSessionNotification()
             }
             if (intent?.action == ACTION_STOP_KEEP_AWAKE) stopKeepAwake()
+            if (intent?.action == ACTION_TOGGLE_PAUSE) toggleRemotePause()
         }
     }
 
@@ -120,6 +122,7 @@ class OrbAccessibilityService : AccessibilityService() {
                 addAction(ACTION_ORB_CHANGED)
                 addAction(ACTION_LOCAL_REVOKE)
                 addAction(ACTION_STOP_KEEP_AWAKE)
+                addAction(ACTION_TOGGLE_PAUSE)
             }
             if (Build.VERSION.SDK_INT >= 33) {
                 registerReceiver(reloadReceiver, filter, RECEIVER_NOT_EXPORTED)
@@ -135,10 +138,7 @@ class OrbAccessibilityService : AccessibilityService() {
                 beforeGesture = { overlay?.hideForCapture() },
                 afterGesture = { overlay?.restoreAfterCapture() })
             overlay = OrbOverlay(this, onPauseToggle = {
-                val paused = !prefs().getBoolean("paused", false)
-                prefs().edit().putBoolean("paused", paused).apply()
-                syncOverlay()
-                notifyStateChanged()
+                toggleRemotePause()
             }, onAPIRevoke = {
                 clearAPIGrant()
                 socket?.send(JSONObject().put("event", "auth_revoke").toString())
@@ -196,6 +196,14 @@ class OrbAccessibilityService : AccessibilityService() {
     }
 
     private fun prefs() = getSharedPreferences("connection", MODE_PRIVATE)
+
+    private fun toggleRemotePause() {
+        val paused = !prefs().getBoolean("paused", false)
+        prefs().edit().putBoolean("paused", paused).apply()
+        syncOverlay()
+        notifyStateChanged()
+        refreshSessionNotification()
+    }
 
     private fun setStatus(value: String) {
         prefs().edit().putString("status", value).apply()
@@ -304,6 +312,18 @@ class OrbAccessibilityService : AccessibilityService() {
                 replyError(webSocket, id, "control is limited to the authorized debuggable app")
                 return
             }
+            val remoteLabel = when (method) {
+                "get_screen" -> "查看屏幕"
+                "tap", "tap_element" -> "点击屏幕"
+                "swipe" -> "滑动屏幕"
+                "input_text" -> "输入文字"
+                "press_key" -> "执行按键"
+                "get_app_info" -> "查询应用"
+                "open_wireless_debugging_settings" -> "打开无线调试设置"
+                "wake_screen" -> "唤亮屏幕"
+                else -> null
+            }
+            if (remoteLabel != null) overlay?.beginRemoteAction(id, remoteLabel)
             when (method) {
                 "heartbeat" -> replyOK(webSocket, id, JSONObject().put("alive", true)
                     .put("paused", prefs().getBoolean("paused", false))
@@ -596,7 +616,7 @@ class OrbAccessibilityService : AccessibilityService() {
             putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
         }
         if (field.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) {
-            overlay?.react(OrbReaction.TAP)
+            overlay?.react(OrbReaction.TYPE)
             replyOK(webSocket, id, JSONObject().put("done", true))
         } else replyError(webSocket, id, "field rejected text input")
     }
@@ -738,9 +758,11 @@ class OrbAccessibilityService : AccessibilityService() {
 
     private fun replyOK(webSocket: WebSocket, id: String, result: JSONObject) {
         webSocket.send(JSONObject().put("id", id).put("ok", true).put("result", result).toString())
+        overlay?.finishRemoteAction(id, true)
     }
 
     private fun replyError(webSocket: WebSocket, id: String, error: String) {
         webSocket.send(JSONObject().put("id", id).put("ok", false).put("error", error).toString())
+        overlay?.finishRemoteAction(id, false)
     }
 }

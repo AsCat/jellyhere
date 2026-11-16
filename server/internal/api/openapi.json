@@ -5,7 +5,7 @@
     "version": "0.3.0",
     "description": "手机主动连接 WSS relay；HTTPS 会话需在手机端生成一次性口令。原有 /mcp 和 /device 协议不变。"
   },
-  "servers": [{"url": "https://orb.yuanxuyinli.com"}],
+  "servers": [{"url": "/"}],
   "components": {
     "securitySchemes": {
       "SessionBearer": {"type": "http", "scheme": "bearer", "bearerFormat": "opaque"}

@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JellyHere · 星星悬浮伙伴交互预览</title>
+  <style>
+    :root { color-scheme: light; --ink:#26334d; --muted:#67738b; --sun:#ffc85a; --orange:#ef9047; --line:#e4e9f3; --blue:#536ef5; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:radial-gradient(circle at 12% 12%,#fff3cc 0,transparent 31%),radial-gradient(circle at 90% 64%,#e4eaff 0,transparent 33%),#f8f9fd; color:var(--ink); font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    button { font:inherit; cursor:pointer; }
+    .page { max-width:1120px; margin:auto; padding:42px 24px 60px; }
+    .eyebrow { color:#ac6a2b; font-size:12px; letter-spacing:.14em; font-weight:800; }
+    h1 { font-size:clamp(30px,4.3vw,50px); line-height:1.18; letter-spacing:-.035em; margin:9px 0 12px; }
+    .intro { color:var(--muted); max-width:720px; margin:0 0 28px; }
+    .layout { display:grid; grid-template-columns:minmax(320px,410px) minmax(300px,1fr); gap:38px; align-items:start; }
+    .phone { width:min(100%,390px); height:760px; border:8px solid #2e3550; border-radius:45px; padding:8px; background:#2e3550; box-shadow:0 28px 70px #34406c38,inset 0 0 0 2px #7b849d; }
+    .screen { position:relative; width:100%; height:100%; overflow:hidden; border-radius:31px; background:linear-gradient(165deg,#e7edff 0%,#f8f9ff 42%,#fff9eb 100%); isolation:isolate; }
+    .statusbar { height:35px; display:flex; align-items:center; justify-content:space-between; padding:7px 20px 0; font-size:12px; font-weight:800; }
+    .camera { width:89px; height:21px; border-radius:0 0 15px 15px; background:#2e3550; position:absolute; top:-1px; left:50%; transform:translateX(-50%); }
+    .fake-app { padding:25px 20px; }
+    .app-tag { display:inline-flex; border-radius:100px; background:#e1e7ff; color:#4d60bd; padding:5px 11px; font-size:11px; font-weight:800; letter-spacing:.08em; }
+    .fake-app h2 { font-size:27px; line-height:1.24; margin:15px 0 4px; }
+    .fake-app p { color:#758098; font-size:13px; margin:0 0 21px; }
+    .search { height:46px; border-radius:16px; background:#fff; border:1px solid #e5e9f2; box-shadow:0 7px 20px #6974970d; display:flex; align-items:center; gap:10px; padding:0 14px; color:#9aa4b7; font-size:13px; }
+    .search::before { content:""; width:12px; height:12px; border:2px solid #a6b2c8; border-radius:50%; box-shadow:6px 6px 0 -4px #a6b2c8; }
+    .section-title { display:flex; align-items:center; justify-content:space-between; margin:28px 0 12px; font-size:13px; font-weight:800; }
+    .section-title span { color:#8c98af; font-size:11px; font-weight:600; }
+    .app-card { background:#fff; border:1px solid #e7e9f1; border-radius:19px; margin:10px 0; padding:14px; display:flex; gap:12px; align-items:center; box-shadow:0 10px 24px #7a82920c; }
+    .tile { width:49px; height:49px; border-radius:15px; flex:none; }
+    .tile.one { background:linear-gradient(145deg,#b9c6ff,#667ee9); }
+    .tile.two { background:linear-gradient(145deg,#ffe4ab,#f2ae7d); }
+    .tile.three { background:linear-gradient(145deg,#b9e8d3,#7fcbba); }
+    .app-card strong { display:block; font-size:13px; }
+    .app-card small { display:block; color:#9ba4b7; font-size:11px; margin-top:2px; }
+    .app-card em { margin-left:auto; font-style:normal; color:#7f8aa4; }
+    .bottom-nav { position:absolute; bottom:0; height:67px; left:0; right:0; border-top:1px solid #edf0f6; background:#ffffffd8; backdrop-filter:blur(12px); display:flex; align-items:center; justify-content:space-around; color:#99a2b7; font-size:11px; }
+    .bottom-nav span:first-child { color:#5871df; font-weight:800; }
+    .homebar { position:absolute; width:115px; height:4px; bottom:6px; left:50%; transform:translateX(-50%); background:#4f5667; border-radius:9px; }
+    .mascot { position:absolute; z-index:5; right:5px; top:53%; width:93px; height:93px; border:0; background:none; padding:0; filter:drop-shadow(0 10px 12px #bd7c3280); transition:right .42s cubic-bezier(.18,.88,.26,1.15),top .42s; touch-action:none; }
+    .mascot::after { content:""; position:absolute; inset:13px; border:2px solid #ffca64; border-radius:50%; opacity:0; }
+    .mascot svg { width:100%; height:100%; display:block; overflow:visible; }
+    .mascot .star { transform-origin:50% 50%; animation:breathe 2.3s ease-in-out infinite; }
+    .screen[data-mode="peek"] .mascot { right:-60px; }
+    .screen[data-mode="paused"] .mascot { right:-19px; filter:grayscale(.78) drop-shadow(0 7px 8px #6974895a); }
+    .screen[data-mode="reading"] .mascot { animation:float 1s ease-in-out infinite alternate; }
+    .screen[data-mode="reading"] .mascot::after { animation:scan 1.2s ease-out infinite; }
+    .screen[data-mode="tapping"] .mascot .star { animation:tap .7s ease-in-out infinite; }
+    .screen[data-mode="swiping"] .mascot .star { animation:swipe .85s ease-in-out infinite; }
+    .screen[data-mode="typing"] .mascot .star { animation:type .52s ease-in-out infinite; }
+    .screen[data-mode="done"] .mascot .star { animation:happy .65s ease-in-out 2; }
+    .bubble { position:absolute; z-index:6; right:105px; top:52%; width:215px; min-height:110px; padding:14px 14px 11px; border-radius:19px 19px 7px 19px; background:#fff; box-shadow:0 16px 38px #55607833; border:1px solid #edf0f6; animation:appear .28s cubic-bezier(.2,.85,.2,1.2); }
+    .bubble::after { content:""; position:absolute; right:-9px; top:37px; width:16px; height:16px; background:#fff; transform:rotate(45deg); border-top:1px solid #edf0f6; border-right:1px solid #edf0f6; }
+    .bubble[hidden] { display:none; }
+    .bubble-title { display:flex; align-items:center; gap:8px; font-size:13px; font-weight:800; }
+    .indicator { width:9px; height:9px; border-radius:50%; background:var(--blue); box-shadow:0 0 0 4px #e9edff; }
+    .screen[data-mode="paused"] .indicator { background:#949daf; box-shadow:0 0 0 4px #eff1f4; }
+    .bubble-detail { margin:5px 0 9px 17px; font-size:12px; color:#78849a; line-height:1.4; }
+    .pause { border:0; background:#fff0e7; color:#b45d2b; border-radius:9px; padding:5px 10px; font-size:11px; font-weight:800; margin-left:17px; }
+    .screen[data-mode="paused"] .pause { background:#eaf0ff; color:#4c63c0; }
+    .sparkle { position:absolute; z-index:4; pointer-events:none; opacity:0; color:#ffae44; font-size:25px; text-shadow:0 3px 9px #ffdb8e; }
+    .sparkle.one { right:87px; top:49%; }
+    .sparkle.two { right:13px; top:48%; font-size:18px; }
+    .sparkle.three { right:101px; top:65%; font-size:15px; }
+    .screen[data-mode="reading"] .sparkle,.screen[data-mode="tapping"] .sparkle,.screen[data-mode="done"] .sparkle { animation:spark 1.3s ease-in-out infinite; }
+    .screen[data-mode="reading"] .sparkle.two,.screen[data-mode="tapping"] .sparkle.two,.screen[data-mode="done"] .sparkle.two { animation-delay:.3s; }
+    .screen[data-mode="reading"] .sparkle.three,.screen[data-mode="tapping"] .sparkle.three,.screen[data-mode="done"] .sparkle.three { animation-delay:.6s; }
+    .motion-trail { position:absolute; z-index:4; pointer-events:none; opacity:0; right:40px; top:66%; width:105px; height:15px; border-top:5px dotted #f4ad65; border-radius:50%; transform:rotate(-28deg); }
+    .screen[data-mode="swiping"] .motion-trail { animation:trail .85s ease-out infinite; }
+    .tap-ring { position:absolute; z-index:3; pointer-events:none; opacity:0; left:39%; top:44%; width:60px; height:60px; border:3px solid #6b82ef; border-radius:50%; }
+    .screen[data-mode="tapping"] .tap-ring { animation:tap-ring 1.05s ease-out infinite; }
+    .control-panel { padding-top:5px; }
+    .control-panel h2 { margin:0 0 8px; font-size:23px; }
+    .control-panel>p { color:var(--muted); margin:0 0 20px; }
+    .group-title { text-transform:uppercase; letter-spacing:.1em; color:#9a6e48; font-weight:800; font-size:12px; margin:25px 0 10px; }
+    .controls { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .controls button { border:1px solid #dfe4f0; border-radius:13px; background:#fff; padding:13px 10px; color:#34415c; font-weight:700; box-shadow:0 5px 12px #4452710c; }
+    .controls button:hover,.controls button:focus-visible { border-color:#f4b862; box-shadow:0 0 0 3px #fff0d4; outline:0; }
+    .controls button:active { transform:scale(.98); }
+    .control-panel .note { background:#fff; border:1px solid var(--line); border-radius:16px; padding:15px 18px; margin-top:22px; color:#69758b; font-size:13px; }
+    .note strong { color:#35405a; }
+    .legend { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }
+    .legend span { color:#6b7790; font-size:12px; }
+    .legend b { color:#38435e; }
+    @keyframes breathe { 50%{transform:scale(1.04) rotate(2deg)} }
+    @keyframes float { to{transform:translateY(-10px)} }
+    @keyframes scan { 12%{opacity:.85;transform:scale(.8)} 100%{opacity:0;transform:scale(1.75)} }
+    @keyframes tap { 32%{transform:translateY(-17px) scale(1.14)} 62%{transform:translateY(2px) scale(.9)} 100%{transform:none} }
+    @keyframes swipe { 20%{transform:translateX(-17px) rotate(-16deg)} 70%{transform:translateX(11px) rotate(13deg)} }
+    @keyframes type { 50%{transform:translateY(-7px) rotate(-5deg)} }
+    @keyframes happy { 40%{transform:translateY(-12px) scale(1.11)} 80%{transform:rotate(11deg)} }
+    @keyframes spark { 25%{opacity:1;transform:translateY(-9px) scale(1.15)} 75%{opacity:.45;transform:translateY(-18px)} }
+    @keyframes trail { 20%{opacity:1} 100%{opacity:0;transform:translateX(-35px) rotate(-28deg)} }
+    @keyframes tap-ring { 18%{opacity:.8;transform:scale(.35)} 100%{opacity:0;transform:scale(1.6)} }
+    @keyframes appear { from{opacity:0;transform:translateY(10px) scale(.9)} to{opacity:1;transform:none} }
+    @media(max-width:800px){ .layout{grid-template-columns:1fr;gap:28px}.phone{margin:auto}.control-panel{max-width:550px;margin:auto}.page{padding-top:25px} }
+    @media(max-width:430px){ .page{padding:21px 11px 36px}.phone{height:730px}.bubble{right:100px;width:199px} }
+    @media(prefers-reduced-motion:reduce){ *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important} }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="eyebrow">JELLYHERE · INTERACTION PROTOTYPE</div>
+    <h1>星星，正在你身边。</h1>
+    <p class="intro">以 Android 端当前的暖黄色“星星”为原型，保留五角星轮廓、五官、腮红与状态点；星角和表面高光做得更圆润、更像果冻。点右侧按钮试试半隐藏、读屏、点击、滑动、输入和暂停。这里不会连接或操作真实设备。</p>
+    <div class="layout">
+      <div class="phone" aria-label="模拟手机画面">
+        <div class="screen" id="screen" data-mode="peek">
+          <div class="camera"></div>
+          <div class="statusbar"><span>9:41</span><span>●●●  5G  ▰</span></div>
+          <div class="fake-app">
+            <span class="app-tag">DEMO APP</span>
+            <h2>今天想做什么？</h2>
+            <p>在这个模拟页面里观察果冻的状态反馈。</p>
+            <div class="search">搜索项目、任务或设置</div>
+            <div class="section-title">最近项目 <span>查看全部 →</span></div>
+            <div class="app-card"><span class="tile one"></span><span><strong>Android 开发测试</strong><small>今天更新 · 3 个任务</small></span><em>›</em></div>
+            <div class="app-card"><span class="tile two"></span><span><strong>无线调试快捷操作</strong><small>本地手机技能</small></span><em>›</em></div>
+            <div class="app-card"><span class="tile three"></span><span><strong>界面元素检查</strong><small>截图与节点树</small></span><em>›</em></div>
+          </div>
+          <span class="tap-ring"></span><span class="motion-trail"></span>
+          <span class="sparkle one">✦</span><span class="sparkle two">✦</span><span class="sparkle three">✦</span>
+          <div class="bubble" id="bubble" role="status" aria-live="polite" hidden>
+            <div class="bubble-title"><span class="indicator"></span><span id="bubble-title">果冻已连接</span></div>
+            <div class="bubble-detail" id="bubble-detail">点我可查看状态或暂停远程访问。</div>
+            <button class="pause" id="pause-button" type="button">暂停远程访问</button>
+          </div>
+          <button class="mascot" id="mascot" type="button" aria-label="展开星星，查看远程状态">
+            <svg viewBox="0 0 72 72" aria-hidden="true">
+              <defs>
+                <linearGradient id="star-fill" x1=".15" y1="0" x2=".86" y2="1"><stop offset="0" stop-color="#fff5c9"/><stop offset=".42" stop-color="#ffe183"/><stop offset="1" stop-color="#ffc35e"/></linearGradient>
+                <linearGradient id="jelly-gloss" x1="0" y1="0" x2=".65" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".79"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+              </defs>
+              <g class="star">
+                <path d="M33 7.2 Q36 4 39 7.2 L47.9 16.7 Q49.5 18.4 51.7 19.4 L63.5 25 Q67.4 26.8 65.3 30.6 L59 42 Q57.9 44.1 57.6 46.5 L55.9 59.4 Q55.4 63.7 51.1 62.9 L38.3 60.4 Q36 60 33.7 60.4 L20.9 62.9 Q16.6 63.7 16.1 59.4 L14.4 46.5 Q14.1 44.1 13 42 L6.7 30.6 Q4.6 26.8 8.5 25 L20.3 19.4 Q22.5 18.4 24.1 16.7Z" fill="url(#star-fill)" stroke="#d8923d" stroke-width="2.4" stroke-linejoin="round"/>
+                <path d="M23 21 Q34 9 43 17 Q52 23 51 30 Q48 35 39 31 Q31 27 23 31 Q19 28 23 21Z" fill="url(#jelly-gloss)"/>
+                <ellipse cx="29" cy="29" rx="5.5" ry="3" fill="#fff9d9" opacity=".9" transform="rotate(-21 29 29)"/>
+                <circle cx="25" cy="33" r="3.5" fill="#64453e"/><circle cx="47" cy="33" r="3.5" fill="#64453e"/>
+                <circle cx="26" cy="31.8" r="1.1" fill="#fff"/><circle cx="48" cy="31.8" r="1.1" fill="#fff"/>
+                <ellipse cx="18" cy="42" rx="3.8" ry="2.8" fill="#f59ea4" opacity=".76"/><ellipse cx="54" cy="42" rx="3.8" ry="2.8" fill="#f59ea4" opacity=".76"/>
+                <path d="M30 41 Q36 48 42 41" fill="none" stroke="#64453e" stroke-width="2.4" stroke-linecap="round"/>
+                <circle cx="59" cy="58" r="7" fill="#fff"/><circle cx="59" cy="58" r="5" fill="#31ad6b"/>
+              </g>
+            </svg>
+          </button>
+          <div class="bottom-nav"><span>⌂<br>首页</span><span>◇<br>发现</span><span>☰<br>任务</span><span>♙<br>我的</span></div>
+          <div class="homebar"></div>
+        </div>
+      </div>
+      <section class="control-panel" aria-label="预览控制台">
+        <h2>看得见，也能随时停下</h2>
+        <p>默认贴边只露出约三分之一；收到远程请求时探出并说明当前动作。每种动作结束后短暂显示结果，然后自动贴边。</p>
+        <div class="group-title">位置与状态</div>
+        <div class="controls">
+          <button type="button" data-action="peek">半隐藏待机</button>
+          <button type="button" data-action="open">点开星星</button>
+        </div>
+        <div class="group-title">模拟远程请求</div>
+        <div class="controls">
+          <button type="button" data-action="reading">👀 查看屏幕</button>
+          <button type="button" data-action="tapping">👆 点击元素</button>
+          <button type="button" data-action="swiping">↗ 滑动屏幕</button>
+          <button type="button" data-action="typing">⌨ 输入文字</button>
+        </div>
+        <div class="group-title">用户控制</div>
+        <div class="controls">
+          <button type="button" data-action="paused">⏸ 暂停远程访问</button>
+          <button type="button" data-action="resume">▶ 恢复访问</button>
+        </div>
+        <div class="note"><strong>交互原则：</strong>气泡只显示动作类型与结果，不展示屏幕文字或输入内容。点击“暂停”会阻止后续远程请求；已经交给 Android 系统执行的手势，可能需要等待它结束。远程截图时，真实 App 会临时隐藏角色和气泡。</div>
+        <div class="legend"><span><b>查看：</b>浮起与扫描光圈</span><span><b>点击：</b>跳跃与触点波纹</span><span><b>滑动：</b>倾斜与运动轨迹</span><span><b>输入：</b>轻快敲击节奏</span></div>
+      </section>
+    </div>
+  </main>
+  <script>
+    const screen = document.getElementById('screen');
+    const bubble = document.getElementById('bubble');
+    const title = document.getElementById('bubble-title');
+    const detail = document.getElementById('bubble-detail');
+    const pauseButton = document.getElementById('pause-button');
+    let timer;
+    const copy = {
+      open: ['果冻已连接', '点这里可随时暂停远程访问。'],
+      reading: ['正在查看屏幕', '读取当前界面与截图…'],
+      tapping: ['正在点击元素', '操作完成后会核对界面。'],
+      swiping: ['正在滑动屏幕', '等待系统手势完成…'],
+      typing: ['正在输入', '输入内容不会出现在气泡里。'],
+      paused: ['远程访问已暂停', '后续读屏与操作都已阻止。'],
+      done: ['操作已完成', '可以继续测试，或随时暂停。']
+    };
+    function setMode(mode) {
+      clearTimeout(timer);
+      if (mode === 'resume') mode = 'open';
+      screen.dataset.mode = mode;
+      bubble.hidden = mode === 'peek';
+      if (mode !== 'peek') {
+        [title.textContent, detail.textContent] = copy[mode];
+        pauseButton.textContent = mode === 'paused' ? '恢复远程访问' : '暂停远程访问';
+      }
+      if (['reading','tapping','swiping','typing'].includes(mode)) {
+        timer = setTimeout(() => {
+          setMode('done');
+          timer = setTimeout(() => setMode('peek'), 2500);
+        }, 3400);
+      }
+    }
+    document.querySelectorAll('[data-action]').forEach(button => button.addEventListener('click', () => setMode(button.dataset.action)));
+    document.getElementById('mascot').addEventListener('click', () => setMode(screen.dataset.mode === 'paused' ? 'paused' : 'open'));
+    pauseButton.addEventListener('click', () => setMode(screen.dataset.mode === 'paused' ? 'resume' : 'paused'));
+  </script>
+</body>
+</html>

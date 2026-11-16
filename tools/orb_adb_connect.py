@@ -283,6 +283,8 @@ def open_wireless_debugging(client: OrbClient) -> dict[str, Any]:
 
 
 def ensure_enabled(client: OrbClient, screen: dict[str, Any]) -> tuple[dict[str, Any], str]:
+    if not is_wireless_detail(screen):
+        raise OrbError("Wireless debugging page did not open; check the phone screen and retry")
     endpoint = current_endpoint(screen)
     if endpoint:
         return screen, endpoint
@@ -408,12 +410,12 @@ def select_device(devices: list[dict[str, Any]], requested: str | None) -> str:
     return str(online[0]["id"])
 
 
-def main() -> int:
+def main(argv: list[str] | None = None, *, command_name: str = "orb-adb") -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device", help="JellyHere device ID; overrides configured default")
     parser.add_argument("--no-adb", action="store_true", help="only enable and print the endpoint")
     parser.add_argument("--list", action="store_true", help="list connected phones without operating them")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     try:
         client = OrbClient(load_url(), load_token(), "")
@@ -439,7 +441,7 @@ def main() -> int:
             connect_adb(endpoint)
         return 0
     except (OrbError, subprocess.SubprocessError, json.JSONDecodeError) as error:
-        print(f"orb-adb: {error}", file=sys.stderr)
+        print(f"{command_name}: {error}", file=sys.stderr)
         return 1
 
 

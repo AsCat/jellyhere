@@ -186,6 +186,7 @@ class MainActivity : Activity() {
             setOnClickListener {
                 prefs.edit().putBoolean("paused", !prefs.getBoolean("paused", false)).apply()
                 sendBroadcast(Intent(OrbAccessibilityService.ACTION_ORB_CHANGED).setPackage(packageName))
+                startSessionKeeper()
                 refreshStatus()
             }
         }

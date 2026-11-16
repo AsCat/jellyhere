@@ -1,6 +1,6 @@
 # MCP 客户端接入
 
-把下面的 `your-domain.example` 换成[自己部署](self-host.md)的域名；维护者的 `orb.yuanxuyinli.com` 是个人实例，不提供公共设备接入。客户端需支持 MCP Streamable HTTP，并在每个请求中发送 `Authorization: Bearer <MCP 令牌>`。手机使用的是另一枚设备令牌，不能混用。
+把下面的 `your-domain.example` 换成[自己部署](self-host.md)的域名。本项目目前不提供公共设备接入服务。客户端需支持 MCP Streamable HTTP，并在每个请求中发送 `Authorization: Bearer <MCP 令牌>`。手机使用的是另一枚设备令牌，不能混用。
 
 ## Codex CLI / 桌面端
 
@@ -28,6 +28,6 @@ tool_timeout_sec = 30
 
 ## 无线调试与果冻的关系
 
-果冻运行时不依赖无线 ADB：手机用移动网络也可主动连接 relay。无线 ADB 只用于开发时安装、调试 APK。`open_wireless_debugging_settings` 尝试打开系统设置；是否已开启须继续读屏确认。手机本地悬浮球的小米快捷流程和电脑端 `orb-adb` 的小米、三星恢复方式见[快捷操作与多设备](shortcuts.md)。果冻离线时电脑端命令无法靠它打开设置。
+果冻运行时不依赖无线 ADB：手机用移动网络也可主动连接 relay。无线 ADB 只用于开发时安装、调试 APK。`open_wireless_debugging_settings` 尝试打开系统设置；是否已开启须继续读屏确认。电脑端安装 `jellyhere` 后，可用 `jellyhere doctor` 和 `jellyhere device list` 检查连接；`jellyhere adb connect --device <id>` 按需恢复无线调试，旧 `orb-adb` 仍可用。智能体入口约定见仓库根目录的 [AGENTS.md](../AGENTS.md)，完整流程见[快捷操作与多设备](shortcuts.md)。果冻离线时电脑端命令无法靠它打开设置。
 
 普通第三方 App 不能直接写入无线调试相关的安全设置；Android 将 `WRITE_SECURE_SETTINGS` 标为[不供第三方应用使用](https://developer.android.com/reference/android/Manifest.permission#WRITE_SECURE_SETTINGS)。[Android 官方无线 ADB 流程](https://developer.android.com/tools/adb#connect-to-a-device-over-wi-fi)要求先在手机上启用无线调试、完成配对，并让工作站与设备处于同一 Wi-Fi 网络。跨网使用还需要另行解决两端的网络可达性；果冻的 HTTPS/WSS 中转只转发果冻命令，不转发 ADB 连接。

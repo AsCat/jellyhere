@@ -23,25 +23,25 @@
 
 ## 调用
 
-公开首页 https://orb.yuanxuyinli.com/ 现含网页查看器：手机生成只读口令后，在首页填写设备 ID（默认 `primary`）和 4 位口令，即可查看状态、按需刷新截图并撤销授权。网页不提供点击、滑动或输入；即使用控制口令配对，网页仍只读。令牌只放在当前页面内存，不写浏览器存储；关闭页面只清除本地令牌，如需立即撤销服务端会话，请点击网页“撤销授权”或在手机端撤销。配对后获取首张截图，此后只在用户点击刷新时采集，不自动连续采集。机器可读契约在 https://orb.yuanxuyinli.com/openapi.json 。下例使用占位口令与令牌：
+自托管实例首页 `https://your-domain.example/` 含网页查看器：手机生成只读口令后，在首页填写设备 ID（默认 `primary`）和 4 位口令，即可查看状态、按需刷新截图并撤销授权。网页不提供点击、滑动或输入；即使用控制口令配对，网页仍只读。令牌只放在当前页面内存中；关闭页面只清除本地令牌，如需立即撤销服务端会话，请点击网页“撤销授权”或在手机端撤销。配对后获取首张截图，此后只在用户点击刷新时采集。机器可读契约位于同一域名的 `/openapi.json`。下例中的域名、口令与令牌均需换成自己的值：
 
-公开存活检查为 `GET https://orb.yuanxuyinli.com/health`，无需授权，固定返回 `{"ok":true}`。Nginx 将它精确转发到既有的本机 `/healthz`；响应不包含设备状态、截图或令牌，也不缓存。此接口只表示 Web 入口和 Go 进程可用，不代表手机在线。
+公开存活检查为 `GET /health`，无需授权，固定返回 `{"ok":true}`。Nginx 将它精确转发到本机 `/healthz`；响应不包含设备状态、截图或令牌，也不缓存。此接口只表示 Web 入口和 Go 进程可用，不代表手机在线。
 
-    curl -sS -X POST https://orb.yuanxuyinli.com/api/v1/auth/pair \
+    curl -sS -X POST https://your-domain.example/api/v1/auth/pair \
       -H 'Content-Type: application/json' \
       -d '{"device_id":"primary","code":"0000"}'
 
     TOKEN='粘贴 access_token'
     curl -H "Authorization: Bearer $TOKEN" \
-      https://orb.yuanxuyinli.com/api/v1/devices/primary/status
+      https://your-domain.example/api/v1/devices/primary/status
     curl -H "Authorization: Bearer $TOKEN" \
-      https://orb.yuanxuyinli.com/api/v1/devices/primary/screenshot -o screen.jpg
+      https://your-domain.example/api/v1/devices/primary/screenshot -o screen.jpg
 
 截图总是向手机请求新画面；max_age_ms 可传 0–60000，但当前版本不读取缓存。成功响应是 image/jpeg，含 Cache-Control: no-store、X-Captured-At、X-Request-ID 和原始屏幕尺寸头。元数据接口只保留时间、分辨率和修订号；断线或重连后的旧图不标为新鲜。手机拒绝截图时返回错误，不返回历史图片。
 
 控制会话在指定可调试 App 位于前台时可以发送：
 
-    curl -X POST https://orb.yuanxuyinli.com/api/v1/devices/primary/actions \
+    curl -X POST https://your-domain.example/api/v1/devices/primary/actions \
       -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
       -d '{"request_id":"tap-001","action":"tap","params":{"x":320,"y":600}}'
 
@@ -63,8 +63,6 @@ swipe 参数是 x1,y1,x2,y2,duration_ms，时长 50–5000 毫秒；back/home �
 
 自动测试覆盖原 MCP 截图/点击链路、手机 WebSocket 模拟、一次性配对、只读权限、截图不缓存、操作幂等、错误 3 次冷却、空闲/绝对过期、跨设备拒绝、一次性分享和撤销。运行 cd server && go test -race ./...；Android 运行 ANDROID_HOME=/path/to/sdk ./gradlew :app:assembleDebug。
 
-线上部署前备份 Go 可执行文件与 Nginx 配置，运行 nginx -t，再重启 Go 和 reload Nginx。当前实例备份在 /opt/orbbuddy/orbbuddy-server.prev 与 /etc/nginx/conf.d/orbbuddy.conf.prev；回滚时恢复两个文件，执行 nginx -t && systemctl reload nginx && systemctl restart orbbuddy.service。
+线上部署前备份 Go 可执行文件与 Nginx 配置，运行 `nginx -t`，再重启 Go 和重载 Nginx。新安装的二进制位于 `/opt/jellyhere/jellyhere-server`，站点配置由部署者自行指定；回滚时恢复各自的备份，并执行 `nginx -t && systemctl reload nginx && systemctl restart jellyhere.service`。
 
-2026-11-10 小米真机 0.3.0 已验收：原 MCP 读屏返回图片；HTTPS 只读口令配对 200、重复口令 401、状态 200、按需 JPEG 200（含采集时间和请求 ID）、元数据 200、只读操作 403、分享链接首次 200/再次 410、手机撤销后原令牌 401/未使用分享链接 410。控制口令绑定果冻自身的可调试包；点击、滑动和重复 request_id 均返回 executed，Home 后立即点击返回 403，状态的 control_available 为 false，读屏与执行回执仍为 200，服务端撤销成功。随机 4 位码在 62 秒后配对返回 401，测试口令已在手机清除。公网首页与 OpenAPI 均返回 200；当前 ChatGPT 网页抓取工具对该新域名报告无法访问，因此不能把“网页抓取可读”标为通过，仍需后续用实际客户端再测。
-
-2026-11-10 网页抓取排障：公网 HTTPS 首页和 OpenAPI 返回 200，证书验证通过，无重定向。Nginx 日志里，来自 OpenAI 公布的 SearchBot IP 的请求到达了 /robots.txt，旧配置返回 404；已增加显式允许抓取的 robots.txt 和 sitemap.xml，均返回 200。再次使用当前 ChatGPT 网页抓取工具打开首页时仍报“URL not accessible”，服务器没有收到对应的首页请求。此现象与新页面尚未进入搜索索引或工具侧访问策略相符；具体工具侧原因无法从本站日志确认。
+发布前至少在两种 Android 机型上验证：只读口令配对、重复口令拒绝、状态与截图、只读操作拒绝、一次性分享链接、手机撤销、控制会话的指定 App 限制和重复 `request_id`。记录版本、网络环境、操作结果和脱敏日志；实例域名与内部路径留在维护者私有验收记录中。

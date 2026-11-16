@@ -59,6 +59,7 @@ class SessionService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val prefs = getSharedPreferences("connection", MODE_PRIVATE)
+        val paused = prefs.getBoolean("paused", false)
         val apiActive = prefs.getBoolean("api_auth_active", false) &&
             System.currentTimeMillis() < prefs.getLong("api_auth_expires_at", 0L) &&
             System.currentTimeMillis() - prefs.getLong("api_last_used_at", 0L) < 5 * 60_000L
@@ -69,6 +70,15 @@ class SessionService : Service() {
             .setContentText(if (keepAwake) "最长 30 分钟自动结束；点击打开果冻，或点操作立即结束" else if (apiActive) "点击打开果冻，可立即撤销授权" else "后台保持连接会增加耗电；点击可停止会话")
             .setContentIntent(openApp)
             .setOngoing(true)
+        val togglePause = PendingIntent.getBroadcast(
+            this, 2,
+            Intent(OrbAccessibilityService.ACTION_TOGGLE_PAUSE).setPackage(packageName),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        builder.addAction(Notification.Action.Builder(
+            if (paused) android.R.drawable.ic_media_play else android.R.drawable.ic_media_pause,
+            if (paused) "恢复远程" else "暂停远程", togglePause
+        ).build())
         if (keepAwake) {
             val stop = PendingIntent.getBroadcast(
                 this, 1,

@@ -8,24 +8,26 @@
 
 成功匹配的元素 `viewId` 和成功/失败次数保存在手机的应用私有数据里；再次执行时优先用已验证的 ID，但仍需匹配当前界面的文字和控件状态。它不保存截图、输入文本或原始点击坐标。当前仅验证了小米澎湃 OS 的本地路径；三星的手机本地路径尚未验收。网络切换后的无线调试端口会变化，不能复用历史地址。
 
-## 电脑端：`orb-adb`
+## 电脑端：`jellyhere` CLI
 
-仓库的 `tools/orb_adb_connect.py` 整合了已实测的小米桌面搜索流程和三星开发者选项流程：先检查目标设备在线，再通过 MCP 读取界面树、开启无线调试、读取动态端口，最后在电脑运行 `adb connect` 并核对 `adb devices -l`。脚本请求 `includeImage=false`，不需要截图。它只执行用户主动发起的一次操作；手机需解锁、果冻在线。已配对的 ADB 主机通常无需每次重新配对。
+`jellyhere adb connect` 整合小米桌面搜索流程和三星开发者选项流程：先检查目标设备在线，再通过 MCP 读取界面树、开启无线调试、读取动态端口，最后在电脑运行 `adb connect` 并核对 `adb devices -l`。底层仍复用 `tools/orb_adb_connect.py`；旧命令 `orb-adb` 继续可用。脚本请求 `includeImage=false`，不需要截图。它只执行用户主动发起的一次操作；手机需解锁、果冻在线。已配对的 ADB 主机通常无需每次重新配对。小米当前系统的开发者选项页偶尔不给无障碍节点树，或桌面搜索落到应用商店结果；遇到“页面未打开”时 CLI 会停止，不会盲点开关，此时可在手机上手动开启后重试。
 
-配置客户端自己的 MCP URL 和令牌。令牌文件只供本机用户读取；也可用同名环境变量。可选的 `default-device` 文件指定 `orb-adb` 无参数时的目标；未配置默认设备且多台在线时，脚本要求 `--device`。
+配置客户端自己的 MCP URL 和令牌。令牌文件只供本机用户读取；也可用同名环境变量。可选的 `default-device` 文件指定命令无参数时的目标；未配置默认设备且多台在线时，脚本要求 `--device`。
 
 ```bash
 mkdir -p ~/.config/jellyhere
 printf '%s\n' 'https://your-domain.example/mcp' > ~/.config/jellyhere/mcp-url
 printf '%s\n' 'primary' > ~/.config/jellyhere/default-device
 chmod 600 ~/.config/jellyhere/mcp-url ~/.config/jellyhere/default-device
-python3 tools/orb_adb_connect.py --list
-python3 tools/orb_adb_connect.py --device samsung
-python3 tools/orb_adb_connect.py
+./scripts/install-cli.sh
+jellyhere doctor
+jellyhere device list
+jellyhere adb connect --device samsung
+jellyhere adb connect
 ```
 
-`~/.config/jellyhere/mcp-token` 需由用户在本机创建并写入 MCP 令牌，创建后执行 `chmod 600 ~/.config/jellyhere/mcp-token`；不要把它提交到仓库或贴到聊天里。也可设置 `JELLYHERE_MCP_URL`、`JELLYHERE_MCP_TOKEN` 和 `JELLYHERE_DEFAULT_DEVICE`；原 `~/.config/orbbuddy/` 与 `ORBBUDDY_*` 配置仍可读取。脚本不负责跨网络转发 ADB：Android 官方无线调试流程要求电脑和手机处在可互通的 Wi-Fi 网络，具体连接仍受网络路由和防火墙限制。[Android ADB 指南](https://developer.android.com/tools/adb#connect-to-a-device-over-wi-fi)
+`~/.config/jellyhere/mcp-token` 需由用户在本机创建并写入 MCP 令牌，创建后执行 `chmod 600 ~/.config/jellyhere/mcp-token`；不要把它提交到仓库或贴到聊天里。也可设置 `JELLYHERE_MCP_URL`、`JELLYHERE_MCP_TOKEN` 和 `JELLYHERE_DEFAULT_DEVICE`；原 `~/.config/orbbuddy/` 与 `ORBBUDDY_*` 配置仍可读取。`jellyhere doctor` 只检查本机配置与在线设备，不修改手机。CLI 不负责跨网络转发 ADB：Android 官方无线调试流程要求电脑和手机处在可互通的 Wi-Fi 网络，具体连接仍受网络路由和防火墙限制。[Android ADB 指南](https://developer.android.com/tools/adb#connect-to-a-device-over-wi-fi)
 
 ## 读屏成本
 
-`get_screen` 默认把截图缩到最长边 1280 像素并以 JPEG 质量 70 编码；不发送原始分辨率图片。只需文字、控件 ID 或开关状态时，传 `includeImage=false`，手机不做截图；再传 `treeMode="compact"`，MCP 将完整树转换为平铺的 `elements`，只保留文字、描述和可操作控件。`path` 和 `revision` 仍可用于 `tap_element`，`bounds` 是原始像素 `[left,top,right,bottom]`。需要视觉判断时可传 `maxImageEdge=640` 或 `960`；原始手机坐标不受缩图影响。图像进入大模型后如何计费由所用模型与客户端决定，文件字节数和视觉 token 数不是同一个指标。精简树也可能包含屏幕上的敏感文字，调用方应避免把反复读取的结果都送入长期对话。电脑端 `orb-adb` 仍使用完整树，以保持其多层界面定位流程。
+`get_screen` 默认把截图缩到最长边 1280 像素并以 JPEG 质量 70 编码；不发送原始分辨率图片。只需文字、控件 ID 或开关状态时，传 `includeImage=false`，手机不做截图；再传 `treeMode="compact"`，MCP 将完整树转换为平铺的 `elements`，只保留文字、描述和可操作控件。`path` 和 `revision` 仍可用于 `tap_element`，`bounds` 是原始像素 `[left,top,right,bottom]`。需要视觉判断时可传 `maxImageEdge=640` 或 `960`；原始手机坐标不受缩图影响。图像进入大模型后如何计费由所用模型与客户端决定，文件字节数和视觉 token 数不是同一个指标。精简树也可能包含屏幕上的敏感文字，调用方应避免把反复读取的结果都送入长期对话。电脑端 `jellyhere adb connect` 仍使用完整树，以保持其多层界面定位流程。
