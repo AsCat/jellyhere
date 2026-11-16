@@ -1,0 +1,64 @@
+# Invite-only managed pilot. Keep /manage/ reachable only over a trusted SSH
+# tunnel to 127.0.0.1:18094; this public proxy does not forward it.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name @@DOMAIN@@;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root @@ACME_ROOT@@;
+        default_type text/plain;
+        try_files $uri =404;
+    }
+    location / { return 301 https://$host$request_uri; }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name @@DOMAIN@@;
+
+    ssl_certificate @@CERT_DIR@@/fullchain.pem;
+    ssl_certificate_key @@CERT_DIR@@/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_tickets off;
+    client_max_body_size 8m;
+    add_header X-Robots-Tag "noindex" always;
+
+    location = /health {
+        proxy_pass http://127.0.0.1:18094/healthz;
+        add_header Cache-Control "no-store" always;
+    }
+
+    location = /device {
+        proxy_pass http://127.0.0.1:18094/device;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+    }
+
+    location = /mcp {
+        proxy_pass http://127.0.0.1:18094/mcp;
+        proxy_http_version 1.1;
+        proxy_set_header Host 127.0.0.1;
+        proxy_set_header Authorization $http_authorization;
+        proxy_read_timeout 30s;
+    }
+
+    location = /tenant {
+        proxy_pass http://127.0.0.1:18094/tenant;
+        proxy_set_header Authorization $http_authorization;
+    }
+
+    location ^~ /tenant/ {
+        proxy_pass http://127.0.0.1:18094;
+        proxy_set_header Authorization $http_authorization;
+    }
+
+    location / { return 404; }
+}

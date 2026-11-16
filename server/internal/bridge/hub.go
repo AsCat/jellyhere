@@ -84,6 +84,12 @@ func (h *Hub) SetEventHandler(handler func(string, Event)) {
 // Attach replaces an older connection for the same device. It blocks until the
 // socket closes, so the HTTP upgrade handler owns the connection lifecycle.
 func (h *Hub) Attach(id string, conn *websocket.Conn) {
+	h.AttachWithReady(id, conn, nil)
+}
+
+// AttachWithReady invokes ready after registration. Managed callers use it to
+// recheck a credential that could have been revoked during the HTTP upgrade.
+func (h *Hub) AttachWithReady(id string, conn *websocket.Conn, ready func()) {
 	now := time.Now().UTC()
 	d := &device{id: id, connectedAt: now, lastSeenAt: now, conn: conn, pending: make(map[string]chan pendingResult)}
 	h.mu.Lock()
@@ -91,6 +97,9 @@ func (h *Hub) Attach(id string, conn *websocket.Conn) {
 	h.devices[id] = d
 	h.seen[id] = DeviceStatus{ID: id, Online: true, ConnectedAt: now, LastSeenAt: now}
 	h.mu.Unlock()
+	if ready != nil {
+		ready()
+	}
 	log.Printf("device %s connected", id)
 	if old != nil {
 		old.close(errors.New("device reconnected"))
@@ -229,6 +238,27 @@ func (h *Hub) LookupStatus(id string) (DeviceStatus, bool) {
 	defer h.mu.RUnlock()
 	status, ok := h.seen[id]
 	return status, ok
+}
+
+// Disconnect closes an active device when its managed credential is revoked.
+func (h *Hub) Disconnect(id string) {
+	h.mu.RLock()
+	d := h.devices[id]
+	h.mu.RUnlock()
+	if d != nil {
+		d.close(ErrOffline)
+	}
+}
+
+// DisconnectConnection only closes the connection supplied by the caller.
+// This avoids closing a newer, valid connection for the same device ID.
+func (h *Hub) DisconnectConnection(id string, conn *websocket.Conn) {
+	h.mu.RLock()
+	d := h.devices[id]
+	h.mu.RUnlock()
+	if d != nil && d.conn == conn {
+		d.close(ErrOffline)
+	}
 }
 
 func (h *Hub) Call(ctx context.Context, deviceID, method string, params any) (json.RawMessage, error) {

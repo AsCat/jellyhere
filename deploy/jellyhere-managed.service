@@ -1,0 +1,24 @@
+[Unit]
+Description=JellyHere invite-only managed relay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+WorkingDirectory=/opt/jellyhere
+EnvironmentFile=/etc/jellyhere/managed.env
+StateDirectory=jellyhere-managed
+StateDirectoryMode=0700
+ExecStart=/opt/jellyhere/jellyhere-server
+Restart=always
+RestartSec=3
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+MemoryMax=256M
+TasksMax=128
+
+[Install]
+WantedBy=multi-user.target

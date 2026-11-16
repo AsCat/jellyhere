@@ -63,6 +63,39 @@ type appInfoInput struct {
 	PackageName string `json:"packageName"`
 }
 
+type deviceBridge interface {
+	Status() []bridge.DeviceStatus
+	Call(context.Context, string, string, any) (json.RawMessage, error)
+}
+
+// scopedBridge limits one managed MCP client to its authorized devices and tools.
+type scopedBridge struct {
+	hub      *bridge.Hub
+	devices  map[string]struct{}
+	readOnly bool
+}
+
+func (s scopedBridge) Status() []bridge.DeviceStatus {
+	all := s.hub.Status()
+	visible := make([]bridge.DeviceStatus, 0, len(all))
+	for _, device := range all {
+		if _, ok := s.devices[device.ID]; ok {
+			visible = append(visible, device)
+		}
+	}
+	return visible
+}
+
+func (s scopedBridge) Call(ctx context.Context, id, method string, params any) (json.RawMessage, error) {
+	if _, ok := s.devices[id]; !ok {
+		return nil, errors.New("device is not authorized for this client")
+	}
+	if s.readOnly && method != "get_screen" && method != "get_lock_state" && method != "get_app_info" {
+		return nil, errors.New("client scope is read-only")
+	}
+	return s.hub.Call(ctx, id, method, params)
+}
+
 func selectedID(devices []bridge.DeviceStatus, id string) (string, error) {
 	if id != "" {
 		return id, nil
@@ -80,7 +113,7 @@ func toolError(err error) (*mcp.CallToolResult, any, error) {
 	return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, nil, nil
 }
 
-func callDevice(ctx context.Context, hub *bridge.Hub, id, method string, params any) (*mcp.CallToolResult, any, error) {
+func callDevice(ctx context.Context, hub deviceBridge, id, method string, params any) (*mcp.CallToolResult, any, error) {
 	selected, err := selectedID(hub.Status(), id)
 	if err != nil {
 		return toolError(err)
@@ -95,7 +128,19 @@ func callDevice(ctx context.Context, hub *bridge.Hub, id, method string, params 
 }
 
 func NewMCPServer(hub *bridge.Hub) *mcp.Server {
-	s := mcp.NewServer(&mcp.Implementation{Name: "jellyhere", Version: "0.4.6"}, &mcp.ServerOptions{
+	return newMCPServer(hub, false)
+}
+
+func newScopedMCPServer(hub *bridge.Hub, deviceIDs []string, readOnly bool) *mcp.Server {
+	allowed := make(map[string]struct{}, len(deviceIDs))
+	for _, id := range deviceIDs {
+		allowed[id] = struct{}{}
+	}
+	return newMCPServer(scopedBridge{hub: hub, devices: allowed, readOnly: readOnly}, readOnly)
+}
+
+func newMCPServer(hub deviceBridge, readOnly bool) *mcp.Server {
+	s := mcp.NewServer(&mcp.Implementation{Name: "jellyhere", Version: "0.5.0-dev"}, &mcp.ServerOptions{
 		Instructions: "JellyHere is for Android development testing. Read the screen before element taps and read it again after the UI changes. Ask the user before entering sensitive data or taking a final order, purchase, or payment action; never treat an ordinary tap approval as payment authorization.",
 	})
 	mcp.AddTool(s, &mcp.Tool{Name: "device_status", Description: "List connected Android devices.", Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true}},
@@ -135,6 +180,13 @@ func NewMCPServer(hub *bridge.Hub) *mcp.Server {
 		func(ctx context.Context, _ *mcp.CallToolRequest, in deviceInput) (*mcp.CallToolResult, any, error) {
 			return callDevice(ctx, hub, in.DeviceID, "get_lock_state", map[string]any{})
 		})
+	mcp.AddTool(s, &mcp.Tool{Name: "get_app_info", Description: "Read package metadata when Android package visibility permits it.", Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true}},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in appInfoInput) (*mcp.CallToolResult, any, error) {
+			return callDevice(ctx, hub, in.DeviceID, "get_app_info", map[string]any{"packageName": in.PackageName})
+		})
+	if readOnly {
+		return s
+	}
 	mcp.AddTool(s, &mcp.Tool{Name: "wake_screen", Description: "Request that Android turn on the display, then report lock state. It does not dismiss a secure lock screen or enter a PIN."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in deviceInput) (*mcp.CallToolResult, any, error) {
 			return callDevice(ctx, hub, in.DeviceID, "wake_screen", map[string]any{})
@@ -170,10 +222,6 @@ func NewMCPServer(hub *bridge.Hub) *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{Name: "press_key", Description: "Press Android back or home."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in keyInput) (*mcp.CallToolResult, any, error) {
 			return callDevice(ctx, hub, in.DeviceID, "press_key", map[string]any{"key": in.Key})
-		})
-	mcp.AddTool(s, &mcp.Tool{Name: "get_app_info", Description: "Read package metadata when Android package visibility permits it.", Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true}},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in appInfoInput) (*mcp.CallToolResult, any, error) {
-			return callDevice(ctx, hub, in.DeviceID, "get_app_info", map[string]any{"packageName": in.PackageName})
 		})
 	mcp.AddTool(s, &mcp.Tool{Name: "open_wireless_debugging_settings", Description: "Open Android's Wireless debugging settings page. The caller must read the screen before changing the switch."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in deviceInput) (*mcp.CallToolResult, any, error) {

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 <domain> <bootstrap|tls> [acme-root] [cert-dir]" >&2
+    echo "Usage: $0 <domain> <bootstrap|tls|managed> [acme-root] [cert-dir]" >&2
     exit 2
 }
 
@@ -19,6 +19,7 @@ cert_dir=${4:-/etc/letsencrypt/live/$domain}
 case $mode in
     bootstrap) template=nginx.bootstrap.conf.template ;;
     tls) template=nginx.conf.template ;;
+    managed) template=nginx.managed.conf.template ;;
     *) usage ;;
 esac
 
