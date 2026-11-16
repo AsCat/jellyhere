@@ -18,6 +18,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
+import android.view.WindowInsets
 import android.view.animation.DecelerateInterpolator
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -245,7 +246,7 @@ class OrbOverlay(
                     params.x = expandedX(params.x + size / 2 < screen.x / 2, screen)
                     orb?.let { manager.updateViewLayout(it, params) }
                     prefs.edit().putInt("orb_x", params.x).putInt("orb_y", params.y).apply()
-                    schedulePeek()
+                    dock()
                 } else if (!dragging && !endedAway && event.eventTime - downAt >= ViewConfiguration.getLongPressTimeout()) {
                     onWirelessDebugRequest()
                 } else {
@@ -258,7 +259,11 @@ class OrbOverlay(
                 }
                 return true
             }
-            MotionEvent.ACTION_CANCEL -> return true
+            MotionEvent.ACTION_CANCEL -> {
+                // Edge gestures may cancel a drag before ACTION_UP; never leave the orb stranded.
+                dock()
+                return true
+            }
         }
         return false
     }
@@ -425,34 +430,36 @@ class OrbOverlay(
         reveal()
         handler.removeCallbacks(autoPeek)
         val screen = displaySize()
-        val width = dp(203)
+        val width = dp(160)
         val left = params.x + size / 2 < screen.x / 2
-        val x = if (left) size + edge else screen.x - size - width - edge
-        val y = (params.y - dp(12)).coerceIn(edge, (screen.y - dp(108)).coerceAtLeast(edge))
+        val x = if (left) dp(8) else screen.x - width - dp(8)
+        val statusBarHeight = manager.currentWindowMetrics.windowInsets
+            .getInsetsIgnoringVisibility(WindowInsets.Type.statusBars()).top
+        val y = maxOf(statusBarHeight, dp(24)) + dp(8)
         val panel = LinearLayout(service).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(13), dp(9), dp(13), dp(9))
+            setPadding(dp(10), dp(6), dp(10), dp(6))
             background = GradientDrawable().apply {
                 setColor(Color.rgb(255, 252, 245))
-                cornerRadius = dp(17).toFloat()
+                cornerRadius = dp(13).toFloat()
                 setStroke(dp(1).coerceAtLeast(1), Color.rgb(242, 207, 146))
             }
-            elevation = dp(10).toFloat()
+            elevation = dp(6).toFloat()
         }
         bubbleTitle = TextView(service).apply {
             text = title
-            textSize = 14f
+            textSize = 12f
             setTextColor(Color.rgb(91, 65, 45))
             setTypeface(null, android.graphics.Typeface.BOLD)
         }.also(panel::addView)
         bubbleDetail = TextView(service).apply {
             text = detail
-            textSize = 11f
+            textSize = 10f
             setTextColor(Color.rgb(130, 104, 84))
         }.also(panel::addView)
         bubbleAction = menuLine(if (paused) "恢复" else "暂停", true).apply {
-            textSize = 13f
-            minHeight = dp(35)
+            textSize = 11f
+            minHeight = dp(28)
             setTextColor(Color.rgb(172, 86, 39))
             setOnClickListener { onPauseToggle() }
         }.also(panel::addView)

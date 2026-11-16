@@ -22,8 +22,8 @@ android {
         applicationId = "dev.orbbuddy.android"
         minSdk = 30
         targetSdk = 34
-        versionCode = 11
-        versionName = "0.4.7"
+        versionCode = 14
+        versionName = "0.4.10"
     }
 
     signingConfigs {
