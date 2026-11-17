@@ -1,6 +1,28 @@
-# 邀请制托管试验
+# JellyHub 托管试验
 
-此模式适合维护者邀请少量开发者试用同一个 Go relay。每个租户有独立的设备连接空间；设备令牌、账户管理令牌和 MCP 客户端令牌分开签发。受邀用户可在托管域名首页管理自己的设备与客户端授权。**它还不是开放注册的 SaaS**：没有邮箱登录、找回账户、计费、跨进程高可用或消费交易授权。现有单用户自托管模式与个人实例不需要迁移。
+此模式适合少量开发者共用一个 Go relay。每个账户有独立设备空间；设备令牌和 MCP 客户端令牌分开签发。配置 GitHub OAuth 后，新用户可用 GitHub 登录并扫码绑定 Android；未配置时仍可用邀请管理令牌。当前单实例上限 100 个账户，属于托管试验，尚无计费、多节点高可用或消费交易授权。现有单用户自托管模式与个人实例不需要迁移。
+
+## 用户操作
+
+1. 打开托管站点，点击“使用 GitHub 登录”。首次登录会自动创建自己的设备空间。
+2. 在“手机设备”卡片下载正式签名的 Android APK，安装并打开果冻。
+3. 网页点击“生成添加设备二维码”；手机 App 点击“扫码加入 JellyHub”，核对服务器和设备空间，再确认绑定。二维码 5 分钟有效、只能兑换一次；票据不包含可长期使用的设备令牌。手机自动保存设备连接配置并发起 WSS 连接。
+4. 首次使用需由用户在 Android 系统设置里手动启用果冻无障碍服务。可按需允许通知、后台运行。
+5. 回到网页确认设备在线，再为自己的 Codex 或其他智能体创建单独的只读或测试控制 MCP 令牌。绑定手机本身不会授权任何智能体。
+
+扫码时请求相机权限。旧版 Android App 仍可手动填写服务器地址、设备 ID 和令牌。登录会话和未兑换的二维码票据目前保存在 Go 进程内；服务重启后需重新登录或重新生成二维码，已绑定设备凭据不会丢失。账户、设备及令牌哈希保存在单进程 JSON 状态文件中；扩大开放注册规模前应迁到数据库。
+
+## 配置 GitHub 登录
+
+在 GitHub OAuth App 设置中填写 Homepage URL `https://managed.example.com/`，Authorization callback URL `https://managed.example.com/auth/github/callback`。OAuth App 只需读取 GitHub 基本身份，不申请额外 scope。将 Client ID 和 Client secret 写入仅服务账户可读的 `/etc/jellyhere/managed.env`：
+
+```text
+JELLYHERE_PUBLIC_URL=https://managed.example.com
+JELLYHERE_GITHUB_CLIENT_ID=<client id>
+JELLYHERE_GITHUB_CLIENT_SECRET=<client secret>
+```
+
+重启 `jellyhere-managed.service` 后，`GET /auth/config` 的 `github_enabled` 应为 `true`，首页才显示 GitHub 登录按钮。不要把 secret 放入 Git、网页或 APK。公网 Nginx 应转发 `/auth/`、`/pair/` 和 `/tenant/`，并提供固定签名的 `/download/jellyhere.apk`；`/manage/tenants` 仍只在本机访问。OAuth state、会话 Cookie 和网页写操作的 Origin 均由服务端校验。
 
 ## 启动独立实例
 
@@ -13,6 +35,7 @@ openssl rand -hex 32 > /var/lib/jellyhere-managed/operator-token
 export JELLYHERE_OPERATOR_TOKEN="$(cat /var/lib/jellyhere-managed/operator-token)"
 export JELLYHERE_MANAGED_STATE=/var/lib/jellyhere-managed/state.json
 export JELLYHERE_LISTEN=127.0.0.1:18094
+export JELLYHERE_PUBLIC_URL=https://managed.example.com
 cd server
 go run ./cmd/jellyhere-server
 ```
@@ -22,7 +45,7 @@ go run ./cmd/jellyhere-server
 ```bash
 sudo install -d -m 700 /etc/jellyhere
 OPERATOR_TOKEN=$(openssl rand -hex 32)
-printf 'JELLYHERE_OPERATOR_TOKEN=%s\nJELLYHERE_MANAGED_STATE=/var/lib/jellyhere-managed/state.json\nJELLYHERE_LISTEN=127.0.0.1:18094\n' \
+printf 'JELLYHERE_OPERATOR_TOKEN=%s\nJELLYHERE_MANAGED_STATE=/var/lib/jellyhere-managed/state.json\nJELLYHERE_LISTEN=127.0.0.1:18094\nJELLYHERE_PUBLIC_URL=https://managed.example.com\n' \
   "$OPERATOR_TOKEN" | sudo tee /etc/jellyhere/managed.env >/dev/null
 sudo chmod 600 /etc/jellyhere/managed.env
 unset OPERATOR_TOKEN
@@ -34,7 +57,7 @@ curl -fsS http://127.0.0.1:18094/health
 
 systemd 会创建单独的可写状态目录；状态文件保持 `0600`。Go 进程用 JSON 文件保存账户和令牌哈希，采用临时文件加原子替换；只支持单进程写入。备份状态文件时按敏感配置处理。`GET /health` 和 `/healthz` 只返回 `{"ok":true}`。
 
-公网 HTTPS/WSS 入口可用 `./deploy/render-nginx.sh managed.example.com managed` 生成独立站点配置，反向代理本机 `18094` 端口。获取证书和启用 Nginx 的命令参见[自托管指南的域名与证书步骤](self-host.md#2-配置域名和证书)，但请使用独立域名与独立配置文件。模板公开邀请管理首页、`/health`、`/device`、`/mcp` 与租户管理路径 `/tenant`；**不公开** `/manage/tenants`。维护者通过服务器本机或 SSH 端口转发调用操作员接口。不要复用个人实例的域名、Nginx 站点和全局令牌。
+公网 HTTPS/WSS 入口可用 `./deploy/render-nginx.sh managed.example.com managed` 生成独立站点配置，反向代理本机 `18094` 端口。获取证书和启用 Nginx 的命令参见[自托管指南的域名与证书步骤](self-host.md#2-配置域名和证书)，但请使用独立域名与独立配置文件。模板公开首页、登录、扫码绑定、APK 下载、`/health`、`/device`、`/mcp` 与租户管理路径 `/tenant`；**不公开** `/manage/tenants`。维护者通过服务器本机或 SSH 端口转发调用操作员接口。不要复用个人实例的域名、Nginx 站点和全局令牌。
 
 ## 邀请与接入
 
@@ -69,6 +92,6 @@ systemd 会创建单独的可写状态目录；状态文件保持 `0600`。Go �
 
 3. 用户可用 `GET /tenant` 查看自己的设备在线状态和已授权客户端。`DELETE /tenant/clients/{id}` 撤销单个智能体令牌；`DELETE /tenant/devices/{id}` 断开手机并撤销包含该设备的客户端令牌；`POST /tenant/owner-token/rotate` 更换账户管理令牌，旧令牌随即失效。撤销阻止后续请求，已经发送到手机的动作可能仍需等待结束。
 
-当前限制：每个 MCP 客户端每分钟最多 60 个 HTTP 请求；单实例最多 100 个租户，每租户最多 8 台设备和 16 个 MCP 客户端。模式使用单个 Go 进程和本地状态文件；后续若需要公开注册、多人运营或多节点扩容，再引入正式账户登录、持久数据库、配额和运营流程。支付、最终下单仍需独立的手机端确认机制，不由 `controller` 令牌代替。
+当前限制：每个 MCP 客户端每分钟最多 60 个 HTTP 请求；单实例最多 100 个租户，每租户最多 8 台设备和 16 个 MCP 客户端。模式使用单个 Go 进程和本地状态文件；规模扩大后需引入数据库、持久会话、配额和运营流程。支付、最终下单仍需独立的手机端确认机制，不由 `controller` 令牌代替。
 
-邀请制模式目前只开放 WSS 设备连接、MCP 和租户凭据管理；默认自托管模式中的网页查看器、临时 HTTPS 口令与 `/api/v1` 接口尚未接入租户模型。手机 App 中可继续使用悬浮角色暂停远程操作，但临时 HTTPS 口令在此模式下不能配对。`controller` MCP 客户端仍有 Android 测试控制能力，应只发给可信的开发智能体。
+托管模式目前开放 WSS 设备连接、MCP、账户登录、扫码绑定和租户凭据管理；默认自托管模式中的网页查看器、临时 HTTPS 口令与 `/api/v1` 接口尚未接入租户模型。手机 App 中可继续使用悬浮角色暂停远程操作，但临时 HTTPS 口令在此模式下不能配对。`controller` MCP 客户端仍有 Android 测试控制能力，应只发给可信的开发智能体。

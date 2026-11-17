@@ -2,6 +2,7 @@ package dev.orbbuddy.android
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -17,6 +18,7 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.net.Uri
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
@@ -24,6 +26,12 @@ import android.widget.LinearLayout
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.ScrollView
+import com.google.zxing.integration.android.IntentIntegrator
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 
 class MainActivity : Activity() {
     private lateinit var status: TextView
@@ -32,6 +40,10 @@ class MainActivity : Activity() {
     private lateinit var pairStatus: TextView
     private lateinit var apiStatus: TextView
     private val handler = Handler(Looper.getMainLooper())
+    private val pairingClient = OkHttpClient()
+    private lateinit var serverInput: EditText
+    private lateinit var deviceInput: EditText
+    private lateinit var tokenInput: EditText
     private var refreshing = false
     private val stateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) = refreshStatus()
@@ -53,29 +65,45 @@ class MainActivity : Activity() {
             textSize = 22f
         })
         add(TextView(this).apply {
-            text = "手机主动连接你的服务器。请先填写地址和设备令牌，再手动开启无障碍服务。"
+            text = "加入 JellyHub：在网页登录并生成二维码，然后用手机扫码。首次使用还需手动开启无障碍服务。自托管用户可继续手动配置。"
         })
+        add(Button(this).apply {
+            text = "扫码加入 JellyHub"
+            setOnClickListener {
+                IntentIntegrator(this@MainActivity).setDesiredBarcodeFormats(IntentIntegrator.QR_CODE)
+                    .setPrompt("扫描 JellyHub 添加设备二维码").setBeepEnabled(false).initiateScan()
+            }
+        })
+        val manual = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+        add(Button(this).apply {
+            text = "自托管 / 手动配置"
+            setOnClickListener { manual.visibility = if (manual.visibility == View.GONE) View.VISIBLE else View.GONE }
+        })
+        add(manual)
         val url = EditText(this).apply {
             hint = "wss://你的域名/device"
             setText(prefs.getString("url", ""))
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
         }
-        add(url)
+        serverInput = url
+        manual.addView(url)
         val deviceID = EditText(this).apply {
             hint = "设备 ID，例如 xiaomi 或 samsung"
             setText(configuredDeviceID(prefs))
             inputType = android.text.InputType.TYPE_CLASS_TEXT
         }
-        add(deviceID)
+        deviceInput = deviceID
+        manual.addView(deviceID)
         val token = EditText(this).apply {
             hint = "设备令牌"
             setText(prefs.getString("token", ""))
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
         }
-        add(token)
+        tokenInput = token
+        manual.addView(token)
         status = TextView(this)
         add(status)
-        add(Button(this).apply {
+        manual.addView(Button(this).apply {
             text = "保存并连接"
             setOnClickListener {
                 val address = url.text.toString().trim()
@@ -243,6 +271,78 @@ class MainActivity : Activity() {
         super.onResume()
         if (getSharedPreferences("connection", MODE_PRIVATE).getBoolean("enabled", false)) startSessionKeeper()
         refreshStatus()
+    }
+
+    @Deprecated("ZXing IntentIntegrator uses the Activity result API")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        val scan = IntentIntegrator.parseActivityResult(requestCode, resultCode, data)
+        if (scan != null) {
+            scan.contents?.let { scanned ->
+                val pairing = JellyHubPairing.parse(scanned, BuildConfig.DEBUG)
+                if (pairing == null) status.text = "二维码无效。请扫描 JellyHub 添加设备二维码"
+                else inspectPairing(pairing)
+            }
+            return
+        }
+        super.onActivityResult(requestCode, resultCode, data)
+    }
+
+    private fun pairRequest(pairing: JellyHubPairing, path: String): JSONObject {
+        val body = JSONObject().put("ticket", pairing.ticket).toString()
+            .toRequestBody("application/json".toMediaType())
+        val request = Request.Builder().url(pairing.server + path).post(body).build()
+        pairingClient.newCall(request).execute().use { response ->
+            val json = JSONObject(response.body?.string().orEmpty())
+            if (!response.isSuccessful) throw IllegalStateException(
+                json.optJSONObject("error")?.optString("message") ?: "请求失败 (${response.code})")
+            return json
+        }
+    }
+
+    private fun inspectPairing(pairing: JellyHubPairing) {
+        status.text = "正在核对二维码…"
+        Thread {
+            runCatching { pairRequest(pairing, "/pair/inspect") }.onSuccess { result ->
+                runOnUiThread {
+                    AlertDialog.Builder(this).setTitle("确认加入设备空间")
+                        .setMessage("服务器：${pairing.server}\n设备空间：${result.optString("tenant_id")}\n\n确认后，这台手机将连接该空间。")
+                        .setNegativeButton("取消", null)
+                        .setPositiveButton("确认绑定") { _, _ -> redeemPairing(pairing) }
+                        .show()
+                }
+            }.onFailure { error -> runOnUiThread { status.text = "核对失败：${error.message}" } }
+        }.start()
+    }
+
+    private fun redeemPairing(pairing: JellyHubPairing) {
+        status.text = "正在绑定设备…"
+        Thread {
+            runCatching { pairRequest(pairing, "/pair/redeem") }.onSuccess { result ->
+                val url = result.getString("device_url")
+                val id = result.getString("device_id")
+                val token = result.getString("device_token")
+                getSharedPreferences("connection", MODE_PRIVATE).edit().putString("url", url)
+                    .putString("device_id", id).putString("token", token)
+                    .putBoolean("enabled", true).putBoolean("paused", false).apply()
+                runOnUiThread {
+                    serverInput.setText(url)
+                    deviceInput.setText(id)
+                    tokenInput.setText(token)
+                    startSessionKeeper()
+                    sendBroadcast(Intent(OrbAccessibilityService.ACTION_RELOAD).setPackage(packageName))
+                    if (Build.VERSION.SDK_INT >= 33 &&
+                        checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+                    }
+                    AlertDialog.Builder(this).setTitle("设备已绑定")
+                        .setMessage("果冻已保存连接。首次使用需在 Android 设置中手动启用果冻无障碍服务。")
+                        .setNegativeButton("稍后", null)
+                        .setPositiveButton("打开设置") { _, _ -> startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+                        .show()
+                    refreshStatus()
+                }
+            }.onFailure { error -> runOnUiThread { status.text = "绑定失败：${error.message}" } }
+        }.start()
     }
 
     override fun onStart() {

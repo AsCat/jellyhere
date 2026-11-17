@@ -1,5 +1,5 @@
 [Unit]
-Description=JellyHere invite-only managed relay
+Description=JellyHub managed relay
 After=network-online.target
 Wants=network-online.target
 

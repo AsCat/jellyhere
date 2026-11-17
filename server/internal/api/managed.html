@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>果冻 JellyHere · 托管试用</title>
+  <title>JellyHub · 果冻设备空间</title>
   <style>
     :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #24334d; background: #f5f8ff; }
     * { box-sizing: border-box; }
@@ -35,25 +35,30 @@
     .notice { min-height: 24px; color: #a43e2d; }
     .code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
     [hidden] { display: none !important; }
+    .qr { width: 256px; height: 256px; max-width: 100%; image-rendering: pixelated; }
+    a.button { display: inline-block; border-radius: 9px; padding: 10px 15px; color: #fff; background: #405fbd; text-decoration: none; }
     @media (max-width: 680px) { .grid { grid-template-columns: 1fr; } header { padding: 22px 20px; } }
   </style>
   <script src="/managed.js" defer></script>
 </head>
 <body>
   <header>
-    <h1>果冻 JellyHere · 托管试用</h1>
-    <p class="muted">手机和智能体连接到同一个托管中转入口，无需自行部署服务器。当前仅向受邀开发者开放。</p>
+    <h1>JellyHub · 果冻设备空间</h1>
+    <p class="muted">登录后下载果冻 App，在手机上扫码添加设备。手机和智能体都主动连接托管中转，无需自行部署服务器。</p>
   </header>
   <main>
     <p id="notice" class="notice" role="status" aria-live="polite"></p>
     <section id="login" class="card">
-      <h2>使用邀请凭据</h2>
-      <p class="muted">邀请链接会自动填入凭据；也可以粘贴维护者提供的账户管理令牌。此令牌仅保存在当前浏览器会话中。</p>
+      <h2>登录 JellyHub</h2>
+      <p><a id="github-login" class="button" href="/auth/github" hidden>使用 GitHub 登录</a><span id="github-unavailable" class="muted">GitHub 登录正在配置；现有邀请凭据仍可使用。</span></p>
+      <details><summary>已有邀请凭据？</summary>
+      <p class="muted">邀请链接会自动填入凭据；也可以粘贴账户管理令牌。此令牌只保存在当前浏览器会话中。</p>
       <form id="login-form">
         <label for="owner-token">账户管理令牌</label>
         <input id="owner-token" type="password" autocomplete="off" spellcheck="false" required>
         <p><button type="submit">打开我的设备空间</button></p>
       </form>
+      </details>
     </section>
     <section id="dashboard" hidden>
       <div class="card row">
@@ -70,13 +75,20 @@
       <div class="grid">
         <section class="card">
           <h2>手机设备</h2>
+          <p><strong>1. 安装果冻 App</strong><br><a id="apk-download" href="/download/jellyhere.apk">下载 Android APK</a>。安装后打开 App。</p>
+          <p><strong>2. 在 App 中扫码添加</strong><br>点击“生成添加设备二维码”，再用 App 首页的“扫码加入 JellyHub”扫描。二维码 5 分钟有效、只能使用一次。</p>
+          <p><button id="create-pairing" type="button">生成添加设备二维码</button></p>
+          <div id="pairing" hidden><img id="pair-qr" class="qr" alt="添加设备二维码"><p class="muted">请在 <span id="pair-expiry"></span> 前扫描。扫码后在手机上核对服务器和设备空间，再确认加入。</p></div>
+          <p class="muted">首次使用仍需在 Android 设置中手动启用果冻无障碍服务。</p>
           <ul id="devices"></ul>
+          <details><summary>手动配置设备（开发者）</summary>
           <form id="device-form">
             <label for="device-id">设备 ID</label>
             <input id="device-id" placeholder="例如 samsung" pattern="[A-Za-z0-9_-]{1,64}" maxlength="64" required>
             <p><button type="submit">生成手机令牌</button></p>
           </form>
           <p class="muted">App 中的服务器地址填 <span id="device-url" class="code"></span>，再填设备 ID 和刚生成的令牌；需在手机上手动启用无障碍服务。</p>
+          </details>
         </section>
         <section class="card">
           <h2>智能体授权</h2>

@@ -4,13 +4,14 @@
   const byId = (id) => document.getElementById(id);
   const key = "jellyhere-managed-owner-token";
   let ownerToken = "";
+  let githubSession = false;
 
   function notice(message) { byId("notice").textContent = message || ""; }
 
   async function request(path, method = "GET", body) {
     const response = await fetch(path, {
       method,
-      headers: { Authorization: `Bearer ${ownerToken}`, ...(body ? { "Content-Type": "application/json" } : {}) },
+      headers: { ...(ownerToken ? { Authorization: `Bearer ${ownerToken}` } : {}), ...(body ? { "Content-Type": "application/json" } : {}) },
       body: body ? JSON.stringify(body) : undefined,
       cache: "no-store",
     });
@@ -121,7 +122,21 @@
     catch (_) { byId("issued-token").select(); notice("请手动复制选中的令牌"); }
   });
   byId("refresh").addEventListener("click", () => refresh().catch((error) => notice(error.message)));
-  byId("logout").addEventListener("click", () => {
+  byId("create-pairing").addEventListener("click", async () => {
+    try {
+      const data = await request("/tenant/pairings", "POST", {});
+      byId("pair-qr").src = data.qr_data_url;
+      byId("pair-expiry").textContent = new Date(data.expires_at).toLocaleTimeString();
+      byId("pairing").hidden = false;
+      notice("");
+    } catch (error) { notice(error.message); }
+  });
+  setInterval(() => {
+    if (!byId("dashboard").hidden && !byId("pairing").hidden) refresh().catch(() => {});
+  }, 4000);
+  byId("logout").addEventListener("click", async () => {
+    if (githubSession) await request("/auth/logout", "POST").catch(() => {});
+    githubSession = false;
     ownerToken = "";
     try { sessionStorage.removeItem(key); } catch (_) { /* Storage may be disabled. */ }
     byId("issued-token").value = "";
@@ -136,5 +151,12 @@
   if (invite) history.replaceState(null, "", location.pathname + location.search);
   let saved = "";
   try { saved = sessionStorage.getItem(key) || ""; } catch (_) { /* Storage may be disabled. */ }
-  if (invite || saved) login(invite || saved).catch((error) => { ownerToken = ""; notice(error.message); });
+  fetch("/auth/config", { cache: "no-store" }).then((r) => r.json()).then((data) => {
+    byId("github-login").hidden = !data.github_enabled;
+    byId("github-unavailable").hidden = !!data.github_enabled;
+  }).catch(() => {});
+  fetch("/auth/session", { cache: "no-store" }).then((r) => {
+    if (r.ok) { githubSession = true; return refresh(); }
+    if (invite || saved) return login(invite || saved);
+  }).catch((error) => { ownerToken = ""; notice(error.message); });
 })();

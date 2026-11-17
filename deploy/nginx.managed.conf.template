@@ -1,4 +1,4 @@
-# Invite-only managed pilot. Keep /manage/ reachable only over a trusted SSH
+# Managed pilot. Keep /manage/ reachable only over a trusted SSH
 # tunnel to 127.0.0.1:18094; this public proxy does not forward it.
 server {
     listen 80;
@@ -34,6 +34,25 @@ server {
     location = /managed.js {
         proxy_pass http://127.0.0.1:18094/managed.js;
         proxy_set_header Host $host;
+    }
+
+    location ^~ /auth/ {
+        proxy_pass http://127.0.0.1:18094;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        add_header Cache-Control "no-store" always;
+    }
+
+    location ^~ /pair/ {
+        proxy_pass http://127.0.0.1:18094;
+        proxy_set_header Host $host;
+        add_header Cache-Control "no-store" always;
+    }
+
+    location = /download/jellyhere.apk {
+        alias /opt/jellyhere/download/jellyhere.apk;
+        default_type application/vnd.android.package-archive;
+        add_header Cache-Control "public, max-age=300" always;
     }
 
     location = /health {

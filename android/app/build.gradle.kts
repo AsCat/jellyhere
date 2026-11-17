@@ -22,8 +22,8 @@ android {
         applicationId = "dev.orbbuddy.android"
         minSdk = 30
         targetSdk = 34
-        versionCode = 15
-        versionName = "0.4.11"
+        versionCode = 17
+        versionName = "0.5.1"
     }
 
     signingConfigs {
@@ -56,5 +56,6 @@ android {
 
 dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     testImplementation("junit:junit:4.13.2")
 }

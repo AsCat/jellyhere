@@ -19,11 +19,14 @@ func main() {
 	if statePath := os.Getenv("JELLYHERE_MANAGED_STATE"); statePath != "" {
 		var err error
 		handler, err = api.NewManagedHandler(api.ManagedConfig{StatePath: statePath,
-			OperatorToken: os.Getenv("JELLYHERE_OPERATOR_TOKEN")})
+			OperatorToken:      os.Getenv("JELLYHERE_OPERATOR_TOKEN"),
+			PublicURL:          os.Getenv("JELLYHERE_PUBLIC_URL"),
+			GitHubClientID:     os.Getenv("JELLYHERE_GITHUB_CLIENT_ID"),
+			GitHubClientSecret: os.Getenv("JELLYHERE_GITHUB_CLIENT_SECRET")})
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Printf("JellyHere invite-only managed pilot listening on %s", addr)
+		log.Printf("JellyHub managed pilot listening on %s", addr)
 	} else {
 		cfg := api.Config{DeviceToken: env("JELLYHERE_DEVICE_TOKEN", "ORBBUDDY_DEVICE_TOKEN"), MCPToken: env("JELLYHERE_MCP_TOKEN", "ORBBUDDY_MCP_TOKEN")}
 		if cfg.DeviceToken == "" || cfg.MCPToken == "" {

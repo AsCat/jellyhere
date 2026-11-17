@@ -38,13 +38,20 @@ var managedJS string
 // ManagedConfig enables an invite-only, single-process pilot. It is separate
 // from the legacy self-hosted handler and never accepts its global tokens.
 type ManagedConfig struct {
-	StatePath     string
-	OperatorToken string
+	StatePath          string
+	OperatorToken      string
+	PublicURL          string
+	GitHubClientID     string
+	GitHubClientSecret string
+	GitHubOAuthURL     string // Tests may replace GitHub endpoints.
+	GitHubAPIURL       string
+	HTTPClient         *http.Client
 }
 
 type managedState struct {
-	Version int                      `json:"version"`
-	Tenants map[string]managedTenant `json:"tenants"`
+	Version  int                      `json:"version"`
+	Tenants  map[string]managedTenant `json:"tenants"`
+	Accounts map[string]string        `json:"accounts,omitempty"` // GitHub numeric user ID -> tenant ID.
 }
 
 type managedTenant struct {
@@ -60,12 +67,23 @@ type managedClient struct {
 }
 
 type managedService struct {
-	mu    sync.RWMutex
-	path  string
-	state managedState
-	hubs  map[string]*bridge.Hub
-	op    string
-	usage map[string]managedUsage
+	mu                 sync.RWMutex
+	path               string
+	state              managedState
+	hubs               map[string]*bridge.Hub
+	op                 string
+	usage              map[string]managedUsage
+	publicURL          string
+	githubClientID     string
+	githubClientSecret string
+	githubOAuthURL     string
+	githubAPIURL       string
+	httpClient         *http.Client
+	authMu             sync.Mutex
+	oauthStates        map[string]time.Time
+	sessions           map[string]managedSession
+	pairMu             sync.Mutex
+	pairings           map[string]managedPairing
 }
 
 type managedUsage struct {
@@ -124,8 +142,26 @@ func NewManagedHandler(cfg ManagedConfig) (http.Handler, error) {
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
+	publicURL := strings.TrimRight(cfg.PublicURL, "/")
+	if publicURL != "" && !strings.HasPrefix(publicURL, "https://") {
+		return nil, errors.New("JELLYHERE_PUBLIC_URL must be https://")
+	}
+	client := cfg.HTTPClient
+	if client == nil {
+		client = &http.Client{Timeout: 10 * time.Second}
+	}
 	s := &managedService{path: path, state: state, hubs: make(map[string]*bridge.Hub),
-		op: cfg.OperatorToken, usage: make(map[string]managedUsage)}
+		op: cfg.OperatorToken, usage: make(map[string]managedUsage), publicURL: publicURL,
+		githubClientID: cfg.GitHubClientID, githubClientSecret: cfg.GitHubClientSecret,
+		githubOAuthURL: cfg.GitHubOAuthURL, githubAPIURL: cfg.GitHubAPIURL, httpClient: client,
+		oauthStates: make(map[string]time.Time), sessions: make(map[string]managedSession),
+		pairings: make(map[string]managedPairing)}
+	if s.githubOAuthURL == "" {
+		s.githubOAuthURL = "https://github.com"
+	}
+	if s.githubAPIURL == "" {
+		s.githubAPIURL = "https://api.github.com"
+	}
 	for id := range state.Tenants {
 		s.hubs[id] = bridge.NewHub()
 	}
@@ -162,12 +198,12 @@ func (s *managedService) change(fn func(*managedState) error) error {
 }
 
 func (s *managedService) changeOwned(r *http.Request, tenantID string, fn func(*managedState) error) error {
-	hash, ok := bearerHash(r)
-	if !ok {
+	ownerID, ok := s.owner(r)
+	if !ok || ownerID != tenantID || !s.validMutationOrigin(r) {
 		return managedFailure{401, "unauthorized", "owner token required"}
 	}
 	return s.change(func(state *managedState) error {
-		if state.Tenants[tenantID].OwnerHash != hash {
+		if !s.ownerMatchesState(r, tenantID, state) {
 			return managedFailure{401, "unauthorized", "owner token required"}
 		}
 		return fn(state)
@@ -215,6 +251,11 @@ func validateManagedState(state managedState) error {
 			}
 		}
 	}
+	for githubID, tenantID := range state.Accounts {
+		if githubID == "" || state.Tenants[tenantID].OwnerHash == "" {
+			return errors.New("invalid managed account")
+		}
+	}
 	return nil
 }
 
@@ -260,17 +301,16 @@ func bearerHash(r *http.Request) (string, bool) {
 
 func (s *managedService) owner(r *http.Request) (string, bool) {
 	hash, ok := bearerHash(r)
-	if !ok {
-		return "", false
-	}
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	for id, tenant := range s.state.Tenants {
-		if tenant.OwnerHash == hash {
-			return id, true
+	if ok {
+		s.mu.RLock()
+		defer s.mu.RUnlock()
+		for id, tenant := range s.state.Tenants {
+			if tenant.OwnerHash == hash {
+				return id, true
+			}
 		}
 	}
-	return "", false
+	return s.sessionOwner(r)
 }
 
 func (s *managedService) device(r *http.Request, id string) (*bridge.Hub, string, bool) {
@@ -329,7 +369,7 @@ func (s *managedService) handler() http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "no-referrer")
-		w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src data:; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
 		_, _ = w.Write([]byte(managedHTML))
 	})
 	mux.HandleFunc("GET /managed.js", func(w http.ResponseWriter, _ *http.Request) {
@@ -338,6 +378,16 @@ func (s *managedService) handler() http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		_, _ = w.Write([]byte(managedJS))
 	})
+	mux.HandleFunc("GET /auth/github", s.githubLogin)
+	mux.HandleFunc("GET /auth/github/callback", s.githubCallback)
+	mux.HandleFunc("GET /auth/session", s.authSession)
+	mux.HandleFunc("GET /auth/config", func(w http.ResponseWriter, _ *http.Request) {
+		jsonResponse(w, 200, map[string]bool{"github_enabled": s.githubClientID != "" && s.githubClientSecret != "" && s.publicURL != ""})
+	})
+	mux.HandleFunc("POST /auth/logout", s.authLogout)
+	mux.HandleFunc("POST /tenant/pairings", s.createPairing)
+	mux.HandleFunc("POST /pair/inspect", s.pairInfo)
+	mux.HandleFunc("POST /pair/redeem", s.redeemPairing)
 	mux.HandleFunc("POST /manage/tenants", s.createTenant)
 	mux.HandleFunc("GET /tenant", s.tenantInfo)
 	mux.HandleFunc("POST /tenant/devices", s.createDevice)
