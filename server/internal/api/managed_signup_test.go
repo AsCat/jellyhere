@@ -9,6 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 func TestGitHubSignupAndOneTimeDevicePairing(t *testing.T) {
@@ -134,19 +137,36 @@ func TestGitHubSignupAndOneTimeDevicePairing(t *testing.T) {
 	if code, _ := post("/pair/inspect", map[string]string{"ticket": ticket}, nil, ""); code != 404 {
 		t.Fatalf("replayed inspect status=%d", code)
 	}
-
-	req, _ := http.NewRequest("GET", srv.URL+"/tenant", nil)
-	req.AddCookie(session)
-	resp, err := client.Do(req)
+	code, clientGrant := post("/tenant/clients", map[string]any{"client_name": "三星开发测试", "scope": "viewer",
+		"device_ids": []string{bound["device_id"].(string)}}, session, publicURL)
+	if code != 201 || clientGrant["client_name"] != "三星开发测试" ||
+		!strings.HasPrefix(clientGrant["client_id"].(string), "client_") || len(clientGrant["mcp_token"].(string)) != 64 {
+		t.Fatalf("named client status=%d body=%v", code, clientGrant)
+	}
+	deviceSocket := "ws" + strings.TrimPrefix(srv.URL, "http") + "/device?id=" + bound["device_id"].(string)
+	conn, _, err := websocket.DefaultDialer.Dial(deviceSocket, http.Header{"Authorization": []string{"Bearer " + bound["device_token"].(string)}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer resp.Body.Close()
-	var tenant map[string]any
-	if err := json.NewDecoder(resp.Body).Decode(&tenant); err != nil {
-		t.Fatal(err)
+	defer conn.Close()
+
+	for attempt := 0; attempt < 20; attempt++ {
+		req, _ := http.NewRequest("GET", srv.URL+"/tenant", nil)
+		req.AddCookie(session)
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var tenant map[string]any
+		if err := json.NewDecoder(resp.Body).Decode(&tenant); err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode == 200 && len(tenant["devices"].([]any)) == 1 && len(tenant["clients"].([]any)) == 1 &&
+			tenant["devices"].([]any)[0].(map[string]any)["online"] == true {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
-	if resp.StatusCode != 200 || len(tenant["devices"].([]any)) != 1 {
-		t.Fatalf("tenant status=%d body=%v", resp.StatusCode, tenant)
-	}
+	t.Fatal("paired device did not become online in tenant dashboard")
 }

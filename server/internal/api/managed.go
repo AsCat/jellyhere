@@ -62,6 +62,7 @@ type managedTenant struct {
 
 type managedClient struct {
 	TokenHash string   `json:"token_hash"`
+	Name      string   `json:"name,omitempty"`
 	Scope     string   `json:"scope"` // viewer or controller.
 	DeviceIDs []string `json:"device_ids"`
 }
@@ -238,6 +239,7 @@ func validateManagedState(state managedState) error {
 		}
 		for id, client := range tenant.Clients {
 			if !validDeviceID.MatchString(id) || !validHash(client.TokenHash) ||
+				len(client.Name) > 128 || strings.ContainsAny(client.Name, "\r\n\x00") ||
 				(client.Scope != "viewer" && client.Scope != "controller") ||
 				len(client.DeviceIDs) == 0 || len(client.DeviceIDs) > maxTenantDevices {
 				return fmt.Errorf("invalid managed client in %q", tenantID)
@@ -456,12 +458,17 @@ func (s *managedService) tenantInfo(w http.ResponseWriter, r *http.Request) {
 	sort.Slice(devices, func(i, j int) bool { return devices[i].ID < devices[j].ID })
 	type clientView struct {
 		ID        string   `json:"id"`
+		Name      string   `json:"name"`
 		Scope     string   `json:"scope"`
 		DeviceIDs []string `json:"device_ids"`
 	}
 	clients := make([]clientView, 0, len(tenant.Clients))
 	for clientID, client := range tenant.Clients {
-		clients = append(clients, clientView{clientID, client.Scope, client.DeviceIDs})
+		name := client.Name
+		if name == "" {
+			name = clientID
+		}
+		clients = append(clients, clientView{clientID, name, client.Scope, client.DeviceIDs})
 	}
 	sort.Slice(clients, func(i, j int) bool { return clients[i].ID < clients[j].ID })
 	jsonResponse(w, 200, map[string]any{"tenant_id": id, "devices": devices, "clients": clients})
@@ -556,14 +563,23 @@ func (s *managedService) createClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		ClientID  string   `json:"client_id"`
-		Scope     string   `json:"scope"`
-		DeviceIDs []string `json:"device_ids"`
+		ClientID   string   `json:"client_id"`
+		ClientName string   `json:"client_name"`
+		Scope      string   `json:"scope"`
+		DeviceIDs  []string `json:"device_ids"`
 	}
-	if decodeBody(r, &in) != nil || !validDeviceID.MatchString(in.ClientID) ||
+	if decodeBody(r, &in) != nil || (in.ClientID != "" && !validDeviceID.MatchString(in.ClientID)) ||
+		(in.ClientID == "" && strings.TrimSpace(in.ClientName) == "") ||
+		len(in.ClientName) > 128 || strings.ContainsAny(in.ClientName, "\r\n\x00") ||
 		(in.Scope != "viewer" && in.Scope != "controller") || len(in.DeviceIDs) == 0 || len(in.DeviceIDs) > maxTenantDevices {
-		apiError(w, 400, "invalid_request", "client_id, scope and device_ids required")
+		apiError(w, 400, "invalid_request", "client name, scope and at least one device are required")
 		return
+	}
+	if in.ClientID == "" {
+		in.ClientID = "client_" + requestID()[:12]
+	}
+	if in.ClientName == "" {
+		in.ClientName = in.ClientID
 	}
 	seen := make(map[string]bool)
 	for _, id := range in.DeviceIDs {
@@ -591,7 +607,7 @@ func (s *managedService) createClient(w http.ResponseWriter, r *http.Request) {
 				return managedFailure{400, "invalid_device", "all devices must belong to this tenant"}
 			}
 		}
-		tenant.Clients[in.ClientID] = managedClient{TokenHash: hex.EncodeToString(hash[:]),
+		tenant.Clients[in.ClientID] = managedClient{TokenHash: hex.EncodeToString(hash[:]), Name: in.ClientName,
 			Scope: in.Scope, DeviceIDs: append([]string(nil), in.DeviceIDs...)}
 		state.Tenants[tenantID] = tenant
 		return nil
@@ -600,7 +616,7 @@ func (s *managedService) createClient(w http.ResponseWriter, r *http.Request) {
 		managedError(w, err)
 		return
 	}
-	jsonResponse(w, 201, map[string]any{"client_id": in.ClientID, "scope": in.Scope,
+	jsonResponse(w, 201, map[string]any{"client_id": in.ClientID, "client_name": in.ClientName, "scope": in.Scope,
 		"device_ids": in.DeviceIDs, "mcp_token": token})
 }
 

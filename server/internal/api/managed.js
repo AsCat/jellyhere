@@ -5,6 +5,7 @@
   const key = "jellyhere-managed-owner-token";
   let ownerToken = "";
   let githubSession = false;
+  let pairingKnownDevices = null;
 
   function notice(message) { byId("notice").textContent = message || ""; }
 
@@ -50,6 +51,9 @@
     byId("mcp-url").textContent = `${location.origin}/mcp`;
     const devices = byId("devices");
     const choices = byId("device-choices");
+    const previousChecks = [...choices.querySelectorAll("input")];
+    const selected = new Set(previousChecks.filter((input) => input.checked).map((input) => input.value));
+    const hadChoices = previousChecks.length > 0;
     devices.replaceChildren();
     choices.replaceChildren();
     for (const device of data.devices || []) {
@@ -63,14 +67,21 @@
       const check = document.createElement("input");
       check.type = "checkbox";
       check.value = device.id;
+      check.checked = selected.has(device.id) || (!hadChoices && data.devices.length === 1);
       label.append(check, document.createTextNode(device.id));
       choices.append(label);
     }
     if (!data.devices?.length) choices.textContent = "请先添加手机设备";
+    if (pairingKnownDevices && data.devices?.some((device) => !pairingKnownDevices.has(device.id))) {
+      pairingKnownDevices = null;
+      byId("pairing").hidden = true;
+      byId("pair-qr").removeAttribute("src");
+      notice("手机已登记；请确认设备显示在线，然后再授权智能体");
+    }
     const clients = byId("clients");
     clients.replaceChildren();
     for (const client of data.clients || []) {
-      clients.append(item(`${client.id} · ${client.scope === "viewer" ? "只读" : "控制"} · ${(client.device_ids || []).join(", ")}`, async () => {
+      clients.append(item(`${client.name || client.id} · ${client.scope === "viewer" ? "只读" : "控制"} · ${(client.device_ids || []).join(", ")}`, async () => {
         if (!confirm(`撤销客户端 ${client.id} 的 MCP 令牌？`)) return;
         try { await request(`/tenant/clients/${encodeURIComponent(client.id)}`, "DELETE"); await refresh(); notice("客户端授权已撤销"); }
         catch (error) { notice(error.message); }
@@ -109,11 +120,11 @@
       const ids = [...byId("device-choices").querySelectorAll("input:checked")].map((input) => input.value);
       if (!ids.length) throw new Error("请选择至少一台设备");
       const data = await request("/tenant/clients", "POST", {
-        client_id: byId("client-id").value.trim(), scope: byId("client-scope").value, device_ids: ids,
+        client_name: byId("client-name").value.trim(), scope: byId("client-scope").value, device_ids: ids,
       });
       await refresh();
-      showSecret("MCP 令牌", data.mcp_token, `MCP 地址：${location.origin}/mcp。权限：${data.scope}。设备：${ids.join(", ")}`);
-      byId("client-id").value = "";
+      showSecret("MCP 令牌", data.mcp_token, `智能体：${data.client_name}。MCP 地址：${location.origin}/mcp。权限：${data.scope}。设备：${ids.join(", ")}`);
+      byId("client-name").value = "";
       notice("");
     } catch (error) { notice(error.message); }
   });
@@ -125,6 +136,7 @@
   byId("create-pairing").addEventListener("click", async () => {
     try {
       const data = await request("/tenant/pairings", "POST", {});
+      pairingKnownDevices = new Set([...byId("device-choices").querySelectorAll("input")].map((input) => input.value));
       byId("pair-qr").src = data.qr_data_url;
       byId("pair-expiry").textContent = new Date(data.expires_at).toLocaleTimeString();
       byId("pairing").hidden = false;
@@ -132,8 +144,8 @@
     } catch (error) { notice(error.message); }
   });
   setInterval(() => {
-    if (!byId("dashboard").hidden && !byId("pairing").hidden) refresh().catch(() => {});
-  }, 4000);
+    if (!byId("dashboard").hidden) refresh().catch(() => {});
+  }, 10000);
   byId("logout").addEventListener("click", async () => {
     if (githubSession) await request("/auth/logout", "POST").catch(() => {});
     githubSession = false;

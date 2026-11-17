@@ -4,6 +4,8 @@ This file records changes from the first public preview onward. Until a tagged r
 
 ## Unreleased
 
+- Include the AndroidX runtime classes required by the QR scanner, fixing a launch crash on Samsung.
+- Let managed users name MCP clients in Chinese, keep device selections during dashboard refresh, and default-select a single paired phone.
 - Add optional GitHub login to JellyHub, one-time QR device pairing, a signed Android APK download, and in-app QR scanning. Existing invite credentials continue to work.
 - Add an invite-only managed web portal for device and MCP client provisioning and revocation.
 - Add an optional invite-only managed pilot with tenant-isolated device hubs, per-device and per-client tokens, viewer/controller scopes, revocation, and local state persistence.

@@ -71,7 +71,8 @@ class MainActivity : Activity() {
             text = "扫码加入 JellyHub"
             setOnClickListener {
                 IntentIntegrator(this@MainActivity).setDesiredBarcodeFormats(IntentIntegrator.QR_CODE)
-                    .setPrompt("扫描 JellyHub 添加设备二维码").setBeepEnabled(false).initiateScan()
+                    .setPrompt("扫描 JellyHub 添加设备二维码").setBeepEnabled(false)
+                    .setOrientationLocked(false).initiateScan()
             }
         })
         val manual = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
