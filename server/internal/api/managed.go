@@ -2,6 +2,7 @@ package api
 
 import (
 	"crypto/sha256"
+	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -27,6 +28,12 @@ const (
 	maxTenantClients    = 16
 	maxMCPPerMinute     = 60
 )
+
+//go:embed managed.html
+var managedHTML string
+
+//go:embed managed.js
+var managedJS string
 
 // ManagedConfig enables an invite-only, single-process pilot. It is separate
 // from the legacy self-hosted handler and never accepts its global tokens.
@@ -317,7 +324,19 @@ func (s *managedService) handler() http.Handler {
 	mux.HandleFunc("GET /healthz", health)
 	mux.HandleFunc("GET /health", health)
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, _ *http.Request) {
-		jsonResponse(w, 200, map[string]string{"service": "jellyhere-managed", "mode": "invite-only pilot"})
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+		_, _ = w.Write([]byte(managedHTML))
+	})
+	mux.HandleFunc("GET /managed.js", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		_, _ = w.Write([]byte(managedJS))
 	})
 	mux.HandleFunc("POST /manage/tenants", s.createTenant)
 	mux.HandleFunc("GET /tenant", s.tenantInfo)

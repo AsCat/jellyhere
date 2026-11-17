@@ -4,6 +4,7 @@ This file records changes from the first public preview onward. Until a tagged r
 
 ## Unreleased
 
+- Add an invite-only managed web portal for device and MCP client provisioning and revocation.
 - Add an optional invite-only managed pilot with tenant-isolated device hubs, per-device and per-client tokens, viewer/controller scopes, revocation, and local state persistence.
 - Anchor the compact activity bubble beside the mascot, above it when space permits and below near the top edge.
 - Dock the mascot immediately after a drag; move its activity bubble to a compact top-edge position with smaller text.

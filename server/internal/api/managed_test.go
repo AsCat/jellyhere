@@ -314,3 +314,24 @@ func TestManagedCredentialRolesAndTenantScope(t *testing.T) {
 	}
 	response.Body.Close()
 }
+
+func TestManagedPortalServesInviteUIWithoutCredentials(t *testing.T) {
+	handler, err := NewManagedHandler(ManagedConfig{StatePath: filepath.Join(t.TempDir(), "state.json"),
+		OperatorToken: testOperatorToken})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		path, contentType, marker string
+	}{
+		{"/", "text/html", "id=\"login-form\""},
+		{"/managed.js", "text/javascript", "sessionStorage"},
+	} {
+		record := httptest.NewRecorder()
+		handler.ServeHTTP(record, httptest.NewRequest(http.MethodGet, test.path, nil))
+		if record.Code != 200 || !strings.Contains(record.Header().Get("Content-Type"), test.contentType) ||
+			!strings.Contains(record.Body.String(), test.marker) || record.Header().Get("Cache-Control") != "no-store" {
+			t.Fatalf("portal %s: status=%d headers=%v", test.path, record.Code, record.Header())
+		}
+	}
+}

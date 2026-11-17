@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>果冻 JellyHere · 托管试用</title>
+  <style>
+    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #24334d; background: #f5f8ff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    header { padding: 26px max(20px, calc((100vw - 900px)/2)); background: #fff; border-bottom: 1px solid #e2e8f2; }
+    h1 { font-size: 25px; margin: 0 0 6px; }
+    h2 { font-size: 18px; margin: 0 0 16px; }
+    p { line-height: 1.55; }
+    .muted { color: #61708a; font-size: 14px; }
+    main { max-width: 940px; margin: 24px auto; padding: 0 20px 60px; }
+    .card { background: #fff; border: 1px solid #e0e8f3; border-radius: 16px; padding: 22px; box-shadow: 0 7px 28px #3153820a; margin-bottom: 18px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    label { display: block; font-size: 14px; font-weight: 600; margin: 12px 0 6px; }
+    input, select, textarea { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid #bfcde0; border-radius: 9px; background: #fff; color: #24334d; }
+    textarea { min-height: 88px; resize: vertical; overflow-wrap: anywhere; }
+    button { font: inherit; border: 0; border-radius: 9px; padding: 10px 15px; color: #fff; background: #405fbd; cursor: pointer; }
+    button:hover { background: #304d9d; }
+    button.secondary { background: #e9eef8; color: #304874; }
+    button.danger { background: #fff0ec; color: #a43e2d; }
+    button.small { padding: 6px 10px; font-size: 13px; }
+    .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    ul { list-style: none; padding: 0; margin: 0 0 18px; }
+    li { padding: 11px 0; border-bottom: 1px solid #eaf0f7; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .choice { display: flex; align-items: center; gap: 8px; font-weight: 400; margin: 5px 0; }
+    .choice input { width: auto; }
+    fieldset { border: 1px solid #e0e8f3; border-radius: 9px; margin: 12px 0; }
+    legend { font-size: 14px; font-weight: 600; }
+    .notice { min-height: 24px; color: #a43e2d; }
+    .code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; }
+    [hidden] { display: none !important; }
+    @media (max-width: 680px) { .grid { grid-template-columns: 1fr; } header { padding: 22px 20px; } }
+  </style>
+  <script src="/managed.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1>果冻 JellyHere · 托管试用</h1>
+    <p class="muted">手机和智能体连接到同一个托管中转入口，无需自行部署服务器。当前仅向受邀开发者开放。</p>
+  </header>
+  <main>
+    <p id="notice" class="notice" role="status" aria-live="polite"></p>
+    <section id="login" class="card">
+      <h2>使用邀请凭据</h2>
+      <p class="muted">邀请链接会自动填入凭据；也可以粘贴维护者提供的账户管理令牌。此令牌仅保存在当前浏览器会话中。</p>
+      <form id="login-form">
+        <label for="owner-token">账户管理令牌</label>
+        <input id="owner-token" type="password" autocomplete="off" spellcheck="false" required>
+        <p><button type="submit">打开我的设备空间</button></p>
+      </form>
+    </section>
+    <section id="dashboard" hidden>
+      <div class="card row">
+        <div><h2 id="tenant-title">我的设备空间</h2><p class="muted">设备和客户端授权只属于这个空间。</p></div>
+        <div><button id="refresh" type="button" class="secondary">刷新状态</button> <button id="logout" type="button" class="secondary">退出本机</button></div>
+      </div>
+      <section id="issued" class="card" hidden>
+        <h2>刚生成的凭据</h2>
+        <p class="muted">只显示这一次。请立即复制并妥善保存；不要贴到公开 Issue 或聊天记录。</p>
+        <p id="issued-details" class="code"></p>
+        <textarea id="issued-token" readonly aria-label="刚生成的令牌"></textarea>
+        <p><button id="copy-token" type="button">复制令牌</button></p>
+      </section>
+      <div class="grid">
+        <section class="card">
+          <h2>手机设备</h2>
+          <ul id="devices"></ul>
+          <form id="device-form">
+            <label for="device-id">设备 ID</label>
+            <input id="device-id" placeholder="例如 samsung" pattern="[A-Za-z0-9_-]{1,64}" maxlength="64" required>
+            <p><button type="submit">生成手机令牌</button></p>
+          </form>
+          <p class="muted">App 中的服务器地址填 <span id="device-url" class="code"></span>，再填设备 ID 和刚生成的令牌；需在手机上手动启用无障碍服务。</p>
+        </section>
+        <section class="card">
+          <h2>智能体授权</h2>
+          <ul id="clients"></ul>
+          <form id="client-form">
+            <label for="client-id">客户端名称</label>
+            <input id="client-id" placeholder="例如 codex" pattern="[A-Za-z0-9_-]{1,64}" maxlength="64" required>
+            <label for="client-scope">权限</label>
+            <select id="client-scope"><option value="viewer">只读</option><option value="controller">开发测试控制</option></select>
+            <fieldset><legend>允许访问的设备</legend><div id="device-choices"></div></fieldset>
+            <p><button type="submit">生成 MCP 令牌</button></p>
+          </form>
+          <p class="muted">MCP 地址：<span id="mcp-url" class="code"></span>。在 Codex、WorkBuddy 等客户端中使用刚生成的 MCP 令牌。</p>
+        </section>
+      </div>
+    </section>
+    <p class="muted">这是 Android 开发测试试用版。手机可随时暂停远程访问；下单与支付需要另行设计逐单确认。<a href="https://github.com/AsCat/jellyhere" rel="noopener noreferrer">源码与文档</a></p>
+  </main>
+</body>
+</html>
