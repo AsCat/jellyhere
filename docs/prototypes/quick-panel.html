@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JellyHere · 悬浮果冻菜单预览</title>
+  <style>
+    :root { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:#263348; background:#f6f8fc; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:radial-gradient(circle at 12% 8%,#fff1c9,transparent 28%),#f6f8fc; }
+    button,select { font:inherit; }
+    button { cursor:pointer; }
+    main { max-width:1100px; margin:auto; padding:36px 20px 60px; }
+    h1 { font-size:clamp(27px,4vw,42px); margin:0 0 8px; letter-spacing:-.035em; }
+    .lead { color:#69768e; max-width:700px; margin:0 0 30px; line-height:1.6; }
+    .layout { display:grid; grid-template-columns:minmax(320px,390px) minmax(300px,1fr); gap:42px; align-items:start; }
+    .phone { width:min(100%,390px); height:760px; border:8px solid #252d45; border-radius:43px; padding:7px; background:#252d45; box-shadow:0 25px 60px #26334830; }
+    .screen { position:relative; width:100%; height:100%; overflow:hidden; border-radius:30px; background:linear-gradient(160deg,#edf3ff,#fdfdff 60%,#fff8e8); }
+    .statusbar { height:35px; display:flex; justify-content:space-between; padding:8px 20px; font-size:12px; font-weight:700; }
+    .camera { position:absolute; top:-1px; left:50%; transform:translateX(-50%); width:85px; height:20px; border-radius:0 0 14px 14px; background:#252d45; }
+    .fake { padding:30px 20px; }
+    .fake small { display:inline-block; padding:4px 9px; background:#e8edff; color:#5168ba; border-radius:9px; font-weight:700; }
+    .fake h2 { font-size:27px; margin:15px 0 6px; }
+    .fake p { color:#738098; font-size:13px; line-height:1.5; margin:0 0 26px; }
+    .fake-card { background:#fff; border:1px solid #e4e9f3; border-radius:18px; padding:15px; margin:11px 0; box-shadow:0 7px 18px #2a39500a; font-size:13px; }
+    .fake-card b { display:block; margin-bottom:5px; }
+    .fake-card span { color:#8995a7; }
+    .navbar { position:absolute; bottom:0; left:0; right:0; height:65px; background:#ffffffeb; border-top:1px solid #e9edf3; display:flex; align-items:center; justify-content:space-around; color:#8a96aa; font-size:11px; }
+    .navbar b { color:#5c73ca; }
+    .mascot { position:absolute; z-index:4; right:-32px; top:61%; width:76px; height:76px; border:0; background:none; padding:0; filter:drop-shadow(0 7px 8px #aa6e3770); transition:right .24s ease,transform .24s ease; }
+    .mascot:hover { transform:scale(1.06); }
+    .screen.open .mascot { right:4px; }
+    .mascot svg { width:100%; height:100%; }
+    .screen[data-state="paused"] .mascot { filter:grayscale(.72) drop-shadow(0 6px 7px #73809770); }
+    .panel { position:absolute; z-index:3; top:calc(61% - 205px); right:12px; width:226px; padding:10px; border:1px solid #eedab9; background:#fffdf9; border-radius:18px; box-shadow:0 14px 40px #30405a2b; animation:arrive .2s ease-out; }
+    .panel[hidden] { display:none; }
+    .heading { display:flex; align-items:center; gap:7px; min-height:44px; font-size:13px; font-weight:800; }
+    .more { margin-left:auto; border:0; background:none; color:#65728a; min-width:44px; min-height:44px; font-size:18px; }
+    .dot { width:9px; height:9px; border-radius:50%; background:#27ac77; box-shadow:0 0 0 3px #daf4e9; }
+    .screen[data-state="paused"] .dot,.screen[data-state="offline"] .dot { background:#9ba5b4; box-shadow:0 0 0 3px #edf0f4; }
+    .screen[data-state="active"] .dot { background:#ef9f43; box-shadow:0 0 0 3px #fff1d8; }
+    .detail { color:#728096; font-size:12px; min-height:19px; margin:0 2px 9px; }
+    .primary { border:0; background:#405bb8; color:white; border-radius:12px; width:100%; min-height:48px; font-size:14px; font-weight:800; }
+    .screen[data-state="active"] .primary { background:#b76042; }
+    .screen[data-state="paused"] .primary { background:#3b745f; }
+    .secondary { display:flex; gap:8px; margin-top:8px; }
+    .secondary button { flex:1; border:1px solid #e7e9ef; background:#fff; color:#46546f; border-radius:11px; min-height:48px; font-size:12px; font-weight:700; }
+    .activity { position:absolute; z-index:5; right:12px; top:calc(61% - 94px); width:155px; padding:7px 9px; background:#fffdf8; border:1px solid #f3dcae; border-radius:12px; box-shadow:0 8px 24px #4d536026; font-size:11px; font-weight:700; }
+    .activity[hidden] { display:none; }
+    .controls h2 { margin:0 0 8px; font-size:23px; }
+    .controls p { color:#6d7990; line-height:1.6; margin:0 0 20px; font-size:14px; }
+    .controls label { display:block; font-size:12px; font-weight:800; color:#65728a; margin:19px 0 8px; }
+    .chips { display:flex; flex-wrap:wrap; gap:8px; }
+    .chips button { border:1px solid #dce2ed; border-radius:10px; background:#fff; color:#34435e; padding:9px 12px; min-height:44px; font-size:13px; }
+    .chips button[aria-pressed="true"] { border-color:#dfae55; background:#fff2d8; color:#805727; }
+    select { width:100%; max-width:310px; border:1px solid #dce2ed; border-radius:10px; background:#fff; padding:10px; }
+    .note { background:#fff; border:1px solid #e4e9f2; border-radius:14px; padding:14px 16px; font-size:13px; color:#6d7990; margin-top:23px; line-height:1.6; }
+    @keyframes arrive { from { opacity:0; transform:translateY(7px) scale(.96); } to { opacity:1; transform:none; } }
+    @media(max-width:780px) { .layout { grid-template-columns:1fr; gap:30px; } .phone { margin:auto; } .controls { max-width:520px; margin:auto; } }
+    @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>果冻，点一下就能掌控。</h1>
+    <p class="lead">悬浮角色菜单改版预览。点手机右侧的星星打开面板，切换下方状态看“连接中、操作中、暂停”时的变化。此页面不会连接或操作真实手机。</p>
+    <div class="layout">
+      <div class="phone" aria-label="模拟手机画面">
+        <div class="screen open" id="screen" data-state="idle">
+          <div class="camera"></div>
+          <div class="statusbar"><span>9:41</span><span>●●● 5G ▰</span></div>
+          <div class="fake">
+            <small>DEMO APP</small>
+            <h2>今天想做什么？</h2>
+            <p>果冻会贴在屏幕边缘，菜单也尽量靠边。</p>
+            <div class="fake-card"><b>最近项目</b><span>Android 开发测试</span></div>
+            <div class="fake-card"><b>任务记录</b><span>查看界面 · 点击 · 返回结果</span></div>
+            <div class="fake-card"><b>无线调试</b><span>本地快捷动作</span></div>
+          </div>
+          <div class="panel" id="panel">
+            <div class="heading"><span class="dot"></span><span id="title">果冻 · 已连接</span><button class="more" id="more" type="button" aria-label="更多选项">⋯</button></div>
+            <div class="detail" id="detail">当前空闲，等待你的智能体。</div>
+            <button class="primary" id="primary" type="button">暂停远程访问</button>
+            <div class="secondary"><button id="quick" type="button">打开无线调试</button><button id="home" type="button">打开果冻</button></div>
+          </div>
+          <div class="activity" id="activity" hidden>正在查看屏幕 · 可暂停</div>
+          <button class="mascot" id="mascot" type="button" aria-label="打开果冻控制面板">
+            <svg viewBox="0 0 72 72" aria-hidden="true">
+              <defs><linearGradient id="star-fill" x1=".15" y1="0" x2=".86" y2="1"><stop offset="0" stop-color="#fff5c9"/><stop offset=".42" stop-color="#ffe183"/><stop offset="1" stop-color="#ffc35e"/></linearGradient><linearGradient id="jelly-gloss" x1="0" y1="0" x2=".65" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".79"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+              <g><path d="M33 7.2 Q36 4 39 7.2 L47.9 16.7 Q49.5 18.4 51.7 19.4 L63.5 25 Q67.4 26.8 65.3 30.6 L59 42 Q57.9 44.1 57.6 46.5 L55.9 59.4 Q55.4 63.7 51.1 62.9 L38.3 60.4 Q36 60 33.7 60.4 L20.9 62.9 Q16.6 63.7 16.1 59.4 L14.4 46.5 Q14.1 44.1 13 42 L6.7 30.6 Q4.6 26.8 8.5 25 L20.3 19.4 Q22.5 18.4 24.1 16.7Z" fill="url(#star-fill)" stroke="#d8923d" stroke-width="2.4" stroke-linejoin="round"/><path d="M23 21 Q34 9 43 17 Q52 23 51 30 Q48 35 39 31 Q31 27 23 31 Q19 28 23 21Z" fill="url(#jelly-gloss)"/><circle cx="25" cy="33" r="3.5" fill="#64453e"/><circle cx="47" cy="33" r="3.5" fill="#64453e"/><circle cx="26" cy="31.8" r="1.1" fill="#fff"/><circle cx="48" cy="31.8" r="1.1" fill="#fff"/><ellipse cx="18" cy="42" rx="3.8" ry="2.8" fill="#f59ea4" opacity=".76"/><ellipse cx="54" cy="42" rx="3.8" ry="2.8" fill="#f59ea4" opacity=".76"/><path d="M30 41 Q36 48 42 41" fill="none" stroke="#64453e" stroke-width="2.4" stroke-linecap="round"/><circle cx="59" cy="58" r="7" fill="#fff"/><circle cx="59" cy="58" r="5" fill="#31ad6b"/></g>
+            </svg>
+          </button>
+          <div class="navbar"><b>⌂<br>首页</b><span>◇<br>发现</span><span>☰<br>任务</span><span>♙<br>我的</span></div>
+        </div>
+      </div>
+      <section class="controls">
+        <h2>状态决定菜单内容</h2>
+        <p>首层只保留当前状态、暂停或恢复、一个开发快捷动作，以及进入完整 App。临时授权码、设备凭据和外观设置放在 App 内。</p>
+        <label>模拟设备状态</label>
+        <div class="chips" id="states"><button data-state="unbound" type="button">未绑定</button><button data-state="offline" type="button">离线</button><button data-state="idle" type="button">已连接</button><button data-state="active" type="button">正在操作</button><button data-state="paused" type="button">已暂停</button></div>
+        <label for="deployment">接入方式</label>
+        <select id="deployment"><option value="managed">托管设备空间</option><option value="selfhost">自建服务器</option></select>
+        <div class="note">点击“打开无线调试”只演示状态文案，不会修改系统设置。真实版本会继续按当前界面核对操作结果；三星本地自动开启路径验收前，菜单文案应为“打开无线调试设置”。操作中的“暂停”阻止后续请求，已经交给系统执行的手势可能需要结束。</div>
+      </section>
+    </div>
+  </main>
+  <script>
+    const screen=document.getElementById('screen'),panel=document.getElementById('panel'),activity=document.getElementById('activity');
+    const title=document.getElementById('title'),detail=document.getElementById('detail'),primary=document.getElementById('primary');
+    const quick=document.getElementById('quick');
+    const copy={
+      unbound:['尚未连接','扫码连接后才能远程测试','打开果冻完成连接'],
+      offline:['连接中断','打开果冻查看连接问题','查看连接问题'],
+      idle:['果冻 · 已连接','当前空闲，等待你的智能体。','暂停远程访问'],
+      active:['果冻 · 正在操作','正在查看屏幕，可暂停后续操作。','暂停后续操作'],
+      paused:['远程访问已暂停','后续读屏与操作已阻止。','恢复远程访问']
+    };
+    function render(){
+      const state=screen.dataset.state,[heading,sub,cta]=copy[state];
+      title.textContent=heading;detail.textContent=sub;primary.textContent=cta;
+      quick.hidden=state==='unbound'||state==='offline'||state==='active';
+      activity.hidden=state!=='active'||screen.classList.contains('open');
+      if(state==='idle') detail.textContent=document.getElementById('deployment').value==='selfhost'?'已连接到自建服务器。':'已连接到设备空间。';
+      document.querySelectorAll('[data-state]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.state===state)));
+    }
+    document.getElementById('mascot').onclick=()=>{const open=screen.classList.toggle('open');panel.hidden=!open;render();};
+    document.querySelectorAll('[data-state]').forEach(b=>b.onclick=()=>{screen.dataset.state=b.dataset.state;render();});
+    document.getElementById('deployment').onchange=render;
+    primary.onclick=()=>{if(screen.dataset.state==='idle'||screen.dataset.state==='active')screen.dataset.state='paused';else if(screen.dataset.state==='paused')screen.dataset.state='idle';else detail.textContent='在完整 App 中继续此步骤。';render();};
+    quick.onclick=()=>{detail.textContent='正在打开无线调试设置…';setTimeout(()=>{if(screen.dataset.state==='idle')detail.textContent='已打开系统设置，请确认当前状态。';},1300);};
+    document.getElementById('home').onclick=()=>{detail.textContent='完整 App：设备、授权、快捷动作、设置。';};
+    document.getElementById('more').onclick=()=>{detail.textContent='更多：收起到边缘 · 关闭悬浮角色';};
+    render();
+  </script>
+</body>
+</html>

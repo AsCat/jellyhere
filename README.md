@@ -79,6 +79,8 @@ MCP 地址：`https://你的域名/mcp`
 
 安装与验收见 [docs/quickstart.md](docs/quickstart.md)，客户端配置见 [docs/client-setup.md](docs/client-setup.md)，手机快捷动作和 `jellyhere` CLI 见 [快捷操作与多设备](docs/shortcuts.md)。发布签名与验证见 [Android 发布签名](docs/release-signing.md)。开源版本路线和 iOS 可行性见 [开源发展计划](docs/open-source-plan.md)，可选托管版见 [SaaS 架构草案](docs/saas-architecture.md)，既有功能进度见 [实施路线](docs/roadmap.md)。
 
+Android 端的新用户接入与悬浮菜单改版方案见[移动端体验规划](docs/mobile-ux-plan.md)，可在浏览器打开[交互预览](docs/prototypes/quick-panel.html)查看不同状态的菜单。
+
 电脑端可执行 `./scripts/install-cli.sh`，随后使用 `jellyhere doctor`、`jellyhere device list` 和 `jellyhere adb connect --device samsung`。仓库根目录的 [AGENTS.md](AGENTS.md) 会让在本项目工作的智能体识别这些命令；跨项目的智能体可在自己的工作目录添加相同约定。CLI 不代替 MCP 工具，`adb connect` 仍需要电脑与无线调试端点网络互通。
 
 ## 当前边界与下一步
