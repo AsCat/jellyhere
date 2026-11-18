@@ -46,12 +46,31 @@ type ManagedConfig struct {
 	GitHubOAuthURL     string // Tests may replace GitHub endpoints.
 	GitHubAPIURL       string
 	HTTPClient         *http.Client
+	SMTPHost           string
+	SMTPPort           string
+	SMTPUser           string
+	SMTPPassword       string
+	SMTPFrom           string
 }
 
 type managedState struct {
-	Version  int                      `json:"version"`
-	Tenants  map[string]managedTenant `json:"tenants"`
-	Accounts map[string]string        `json:"accounts,omitempty"` // GitHub numeric user ID -> tenant ID.
+	Version       int                            `json:"version"`
+	Tenants       map[string]managedTenant       `json:"tenants"`
+	Accounts      map[string]string              `json:"accounts,omitempty"` // GitHub numeric user ID -> tenant ID.
+	EmailAccounts map[string]managedEmailAccount `json:"email_accounts,omitempty"`
+	PendingEmails map[string]managedPendingEmail `json:"pending_emails,omitempty"` // Verification token hash -> pending account.
+}
+
+type managedEmailAccount struct {
+	TenantID     string `json:"tenant_id"`
+	PasswordHash string `json:"password_hash"`
+}
+
+type managedPendingEmail struct {
+	Email        string `json:"email"`
+	PasswordHash string `json:"password_hash"`
+	TenantID     string `json:"tenant_id,omitempty"`
+	Expires      int64  `json:"expires"`
 }
 
 type managedTenant struct {
@@ -83,6 +102,13 @@ type managedService struct {
 	authMu             sync.Mutex
 	oauthStates        map[string]time.Time
 	sessions           map[string]managedSession
+	loginAttempts      map[string]managedLoginAttempt
+	passwordSlots      chan struct{}
+	smtpHost           string
+	smtpPort           string
+	smtpUser           string
+	smtpPassword       string
+	smtpFrom           string
 	pairMu             sync.Mutex
 	pairings           map[string]managedPairing
 }
@@ -156,6 +182,10 @@ func NewManagedHandler(cfg ManagedConfig) (http.Handler, error) {
 		githubClientID: cfg.GitHubClientID, githubClientSecret: cfg.GitHubClientSecret,
 		githubOAuthURL: cfg.GitHubOAuthURL, githubAPIURL: cfg.GitHubAPIURL, httpClient: client,
 		oauthStates: make(map[string]time.Time), sessions: make(map[string]managedSession),
+		loginAttempts: make(map[string]managedLoginAttempt),
+		passwordSlots: make(chan struct{}, 2),
+		smtpHost:      cfg.SMTPHost, smtpPort: cfg.SMTPPort, smtpUser: cfg.SMTPUser,
+		smtpPassword: cfg.SMTPPassword, smtpFrom: cfg.SMTPFrom,
 		pairings: make(map[string]managedPairing)}
 	if s.githubOAuthURL == "" {
 		s.githubOAuthURL = "https://github.com"
@@ -256,6 +286,23 @@ func validateManagedState(state managedState) error {
 	for githubID, tenantID := range state.Accounts {
 		if githubID == "" || state.Tenants[tenantID].OwnerHash == "" {
 			return errors.New("invalid managed account")
+		}
+	}
+	for email, account := range state.EmailAccounts {
+		if !validManagedEmail(email) || state.Tenants[account.TenantID].OwnerHash == "" || !validPasswordHash(account.PasswordHash) {
+			return errors.New("invalid email account")
+		}
+	}
+	if len(state.PendingEmails) > 1000 {
+		return errors.New("too many pending email accounts")
+	}
+	for hash, pending := range state.PendingEmails {
+		if len(hash) != 64 || !validManagedEmail(pending.Email) || !validPasswordHash(pending.PasswordHash) || pending.Expires == 0 ||
+			(pending.TenantID != "" && state.Tenants[pending.TenantID].OwnerHash == "") {
+			return errors.New("invalid pending email account")
+		}
+		if _, err := hex.DecodeString(hash); err != nil {
+			return errors.New("invalid email verification hash")
 		}
 	}
 	return nil
@@ -383,18 +430,25 @@ func (s *managedService) handler() http.Handler {
 	mux.HandleFunc("GET /auth/github", s.githubLogin)
 	mux.HandleFunc("GET /auth/github/callback", s.githubCallback)
 	mux.HandleFunc("GET /auth/session", s.authSession)
+	mux.HandleFunc("POST /auth/email/login", s.emailLogin)
+	mux.HandleFunc("POST /auth/email/register", s.emailRegister)
+	mux.HandleFunc("POST /auth/email/link", s.emailLink)
+	mux.HandleFunc("POST /auth/email/verify", s.emailVerify)
 	mux.HandleFunc("GET /auth/config", func(w http.ResponseWriter, _ *http.Request) {
-		jsonResponse(w, 200, map[string]bool{"github_enabled": s.githubClientID != "" && s.githubClientSecret != "" && s.publicURL != ""})
+		jsonResponse(w, 200, map[string]bool{"github_enabled": s.githubClientID != "" && s.githubClientSecret != "" && s.publicURL != "",
+			"email_registration_enabled": s.emailEnabled()})
 	})
 	mux.HandleFunc("POST /auth/logout", s.authLogout)
 	mux.HandleFunc("POST /tenant/pairings", s.createPairing)
 	mux.HandleFunc("POST /pair/inspect", s.pairInfo)
 	mux.HandleFunc("POST /pair/redeem", s.redeemPairing)
 	mux.HandleFunc("POST /manage/tenants", s.createTenant)
+	mux.HandleFunc("POST /manage/email-accounts", s.createOperatorEmailAccount)
 	mux.HandleFunc("GET /tenant", s.tenantInfo)
 	mux.HandleFunc("POST /tenant/devices", s.createDevice)
 	mux.HandleFunc("DELETE /tenant/devices/{id}", s.deleteDevice)
 	mux.HandleFunc("POST /tenant/clients", s.createClient)
+	mux.HandleFunc("PATCH /tenant/clients/{id}", s.updateClient)
 	mux.HandleFunc("DELETE /tenant/clients/{id}", s.deleteClient)
 	mux.HandleFunc("POST /tenant/owner-token/rotate", s.rotateOwner)
 	mux.HandleFunc("GET /device", s.connectDevice)
@@ -618,6 +672,55 @@ func (s *managedService) createClient(w http.ResponseWriter, r *http.Request) {
 	}
 	jsonResponse(w, 201, map[string]any{"client_id": in.ClientID, "client_name": in.ClientName, "scope": in.Scope,
 		"device_ids": in.DeviceIDs, "mcp_token": token})
+}
+
+func (s *managedService) updateClient(w http.ResponseWriter, r *http.Request) {
+	tenantID, ok := s.owner(r)
+	if !ok {
+		apiError(w, 401, "unauthorized", "owner token required")
+		return
+	}
+	id := r.PathValue("id")
+	if !validDeviceID.MatchString(id) {
+		apiError(w, 404, "client_not_found", "client not found")
+		return
+	}
+	var in struct {
+		DeviceIDs []string `json:"device_ids"`
+	}
+	if decodeBody(r, &in) != nil || len(in.DeviceIDs) == 0 || len(in.DeviceIDs) > maxTenantDevices {
+		apiError(w, 400, "invalid_request", "select at least one device")
+		return
+	}
+	seen := make(map[string]bool)
+	for _, deviceID := range in.DeviceIDs {
+		if !validDeviceID.MatchString(deviceID) || seen[deviceID] {
+			apiError(w, 400, "invalid_request", "device IDs must be unique and valid")
+			return
+		}
+		seen[deviceID] = true
+	}
+	err := s.changeOwned(r, tenantID, func(state *managedState) error {
+		tenant := state.Tenants[tenantID]
+		client, exists := tenant.Clients[id]
+		if !exists {
+			return managedFailure{404, "client_not_found", "client not found"}
+		}
+		for _, deviceID := range in.DeviceIDs {
+			if _, exists := tenant.Devices[deviceID]; !exists {
+				return managedFailure{400, "invalid_device", "all devices must belong to this tenant"}
+			}
+		}
+		client.DeviceIDs = append([]string(nil), in.DeviceIDs...)
+		tenant.Clients[id] = client
+		state.Tenants[tenantID] = tenant
+		return nil
+	})
+	if err != nil {
+		managedError(w, err)
+		return
+	}
+	jsonResponse(w, 200, map[string]any{"client_id": id, "device_ids": in.DeviceIDs})
 }
 
 func (s *managedService) deleteClient(w http.ResponseWriter, r *http.Request) {

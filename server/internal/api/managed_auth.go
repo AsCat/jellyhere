@@ -13,9 +13,9 @@ import (
 )
 
 type managedSession struct {
-	tenantID string
-	githubID string
-	expires  time.Time
+	tenantID   string
+	accountKey string
+	expires    time.Time
 }
 
 const managedSessionCookie = "jellyhere_session"
@@ -48,6 +48,11 @@ func (s *managedService) ownerMatchesState(r *http.Request, tenantID string, sta
 	if id, ok := s.sessionOwner(r); ok && id == tenantID {
 		for _, mapped := range state.Accounts {
 			if mapped == id {
+				return true
+			}
+		}
+		for _, account := range state.EmailAccounts {
+			if account.TenantID == id {
 				return true
 			}
 		}
@@ -185,10 +190,17 @@ func (s *managedService) githubCallback(w http.ResponseWriter, r *http.Request) 
 		managedError(w, err)
 		return
 	}
-	session, _, err := randomToken()
-	if err != nil {
+	if err := s.startSession(w, tenantID, "gh:"+githubID); err != nil {
 		managedError(w, err)
 		return
+	}
+	http.Redirect(w, r, s.publicURL+"/", http.StatusFound)
+}
+
+func (s *managedService) startSession(w http.ResponseWriter, tenantID, accountKey string) error {
+	session, _, err := randomToken()
+	if err != nil {
+		return err
 	}
 	s.authMu.Lock()
 	var oldestKey string
@@ -199,7 +211,7 @@ func (s *managedService) githubCallback(w http.ResponseWriter, r *http.Request) 
 			delete(s.sessions, key)
 			continue
 		}
-		if existing.githubID == githubID {
+		if existing.accountKey == accountKey {
 			count++
 			if oldestKey == "" || existing.expires.Before(oldest) {
 				oldestKey, oldest = key, existing.expires
@@ -209,11 +221,11 @@ func (s *managedService) githubCallback(w http.ResponseWriter, r *http.Request) 
 	if count >= 5 {
 		delete(s.sessions, oldestKey)
 	}
-	s.sessions[tokenHash(session)] = managedSession{tenantID, githubID, time.Now().Add(7 * 24 * time.Hour)}
+	s.sessions[tokenHash(session)] = managedSession{tenantID, accountKey, time.Now().Add(7 * 24 * time.Hour)}
 	s.authMu.Unlock()
 	http.SetCookie(w, &http.Cookie{Name: managedSessionCookie, Value: session, Path: "/", Secure: true,
 		HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 7 * 24 * 3600})
-	http.Redirect(w, r, s.publicURL+"/", http.StatusFound)
+	return nil
 }
 
 func (s *managedService) authSession(w http.ResponseWriter, r *http.Request) {

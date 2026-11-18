@@ -2,6 +2,8 @@
 
 **Your device companion for AI agents. Android first.**
 
+**让智能体，从对话走向行动。**
+
 JellyHere 是连接个人设备与 AI 智能体的开源项目。首版支持 Android 开发测试：手机在移动网络下主动连接中转服务，智能体通过 MCP 按需读屏和操作，无需运行时无线 ADB，也无需同一局域网。iOS 和电脑端将按系统能力逐步接入，详见[平台支持规划](docs/platform-support.md)。
 
 ## 模块
@@ -21,7 +23,7 @@ Android 无障碍服务 ── WSS/移动网络 ──> 公网可达的 Go relay
 
 **使用者必须有自己的公网 IP 吗？**不必。手机和电脑都主动向中转入口发起出站连接；中转入口可部署在已有 VPS、云主机，或使用自行运营的托管实例。默认自托管模式使用全局设备/MCP 令牌，适合一个人使用，**不能直接给多个互不信任的用户共用**。详见[部署方式与步骤](docs/self-host.md)。
 
-仓库另提供 **JellyHub 托管试验模式**：在独立 Go 进程中按账户隔离设备，配置 GitHub OAuth 后可登录并用 Android App 扫码绑定手机，向每个 MCP 客户端单独发令牌，可撤销并限制为只读或测试控制。它不改变默认自托管模式；配置和边界见[托管试验指南](docs/managed-pilot.md)。
+仓库另提供 **JellyHub 托管试验模式**：在独立 Go 进程中按账户隔离设备，支持 GitHub 登录和邮箱密码登录（公开邮箱注册需配置 SMTP），可用 Android App 扫码绑定手机。每个 MCP 客户端有独立令牌，可按设备调整授权范围，或随时撤销。它不改变默认自托管模式；配置和边界见[托管试验指南](docs/managed-pilot.md)。WorkBuddy 的正式 OAuth 连接器另有[接入计划](docs/workbuddy-connector-plan.md)。
 
 手机断线后自动退避重连。`get_screen` 默认读取当前无障碍节点树及压缩 JPEG；可用 `includeImage=false` 不取图片、`treeMode=compact` 返回精简元素列表，或设置 `maxImageEdge` 为 320–1280 像素。`tap_element` 使用该次读屏返回的 `revision` 与节点 `path`，界面变化后必须重新读屏。截图被 Android 拒绝或安全窗口遮挡时，仍可返回可见的节点树和 `imageError`。
 

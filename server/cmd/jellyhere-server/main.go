@@ -22,7 +22,10 @@ func main() {
 			OperatorToken:      os.Getenv("JELLYHERE_OPERATOR_TOKEN"),
 			PublicURL:          os.Getenv("JELLYHERE_PUBLIC_URL"),
 			GitHubClientID:     os.Getenv("JELLYHERE_GITHUB_CLIENT_ID"),
-			GitHubClientSecret: os.Getenv("JELLYHERE_GITHUB_CLIENT_SECRET")})
+			GitHubClientSecret: os.Getenv("JELLYHERE_GITHUB_CLIENT_SECRET"),
+			SMTPHost:           os.Getenv("JELLYHERE_SMTP_HOST"), SMTPPort: os.Getenv("JELLYHERE_SMTP_PORT"),
+			SMTPUser: os.Getenv("JELLYHERE_SMTP_USER"), SMTPPassword: os.Getenv("JELLYHERE_SMTP_PASSWORD"),
+			SMTPFrom: os.Getenv("JELLYHERE_SMTP_FROM")})
 		if err != nil {
 			log.Fatal(err)
 		}

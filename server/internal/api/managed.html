@@ -59,6 +59,8 @@
     .login-card { padding: 34px; }
     .login-card h2 { margin-bottom: 10px; font-size: 23px; }
     .login-card .muted { margin-bottom: 26px; font-size: 14px; }
+    .login-card form > button { margin-top: 16px; }
+    .login-card .form-label { margin-top: 12px; }
     .button, button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 10px 16px; border: 1px solid transparent; border-radius: 11px; background: #4869d8; color: #fff; font-weight: 700; text-align: center; text-decoration: none; transition: background .15s, transform .15s; }
     .button:hover, button:hover { background: #3658c5; }
     .button:active, button:active { transform: translateY(1px); }
@@ -126,6 +128,10 @@
     .agent-card { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 13px 15px; border: 1px solid #e4eaf4; border-radius: 12px; background: #fcfdff; }
     .agent-card strong { display: block; font-size: 14px; }
     .agent-card span { color: #7a8ba4; font-size: 12px; }
+    .agent-actions { display: flex; gap: 4px; flex: none; }
+    dialog { width: min(440px, calc(100% - 32px)); padding: 25px; border: 1px solid #e5ebf4; border-radius: 18px; box-shadow: 0 24px 80px rgba(29, 52, 94, .18); }
+    dialog::backdrop { background: rgba(25, 43, 73, .3); }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
     fieldset { margin: 16px 0; padding: 13px; border: 1px solid #e0e8f4; border-radius: 12px; }
     legend { padding: 0 5px; color: #34486c; font-size: 13px; font-weight: 700; }
     .choice { display: flex; align-items: flex-start; gap: 10px; margin: 5px 0; padding: 7px 4px; cursor: pointer; }
@@ -176,12 +182,12 @@
     <section id="login" class="login-layout">
       <div class="login-intro">
         <p class="eyebrow">JellyHere · Developer workspace</p>
-        <h1>让你的手机，<br><span class="accent">随时加入开发现场。</span></h1>
-        <p>在一个设备空间里连接 Android 手机，授权 Codex 等智能体查看界面、辅助测试。手机和电脑各自通过网络接入，换网络也能继续工作。</p>
-        <div class="feature-list"><span>多设备集中管理</span><span>扫码快速接入</span><span>按设备授权智能体</span></div>
+        <h1>让智能体，<br><span class="accent">从对话走向行动。</span></h1>
+        <p>连接你的设备，让智能体理解屏幕、执行操作，在你的掌控下处理真实任务。JellyHere 从 Android 开始，探索未来的跨设备智能体。</p>
+        <div class="feature-list"><span>理解屏幕</span><span>跨网络连接</span><span>多设备协作</span></div>
         <div class="login-visual" aria-hidden="true">
           <span class="visual-phone"></span><span class="visual-line"></span><span class="visual-hub">J</span>
-          <span class="visual-copy"><strong>你的设备空间</strong>把手机和开发工具连接起来</span>
+          <span class="visual-copy"><strong>你的设备空间</strong>把智能体与真实设备连接起来</span>
         </div>
       </div>
       <div class="card login-card">
@@ -189,7 +195,21 @@
         <h2>登录设备空间</h2>
         <p class="muted">登录后管理手机、查看连接状态，并为智能体单独授权。</p>
         <a id="github-login" class="button block" href="/auth/github" hidden><span class="github-icon" aria-hidden="true">GH</span>使用 GitHub 登录</a>
-        <p id="github-unavailable" class="form-note">此实例未启用 GitHub 登录，可使用邀请凭据。</p>
+        <p id="github-unavailable" class="form-note">此实例未启用 GitHub 登录。</p>
+        <div class="divider">或使用邮箱密码</div>
+        <form id="email-login-form">
+          <label class="form-label" for="login-email">邮箱</label><input id="login-email" type="email" autocomplete="username" required>
+          <label class="form-label" for="login-password">密码</label><input id="login-password" type="password" autocomplete="current-password" required>
+          <button type="submit" class="button block">使用邮箱登录</button>
+        </form>
+        <details id="email-register-wrap" class="advanced" hidden><summary>没有账户？注册邮箱账户</summary>
+          <form id="email-register-form">
+            <label class="form-label" for="register-email">邮箱</label><input id="register-email" type="email" autocomplete="email" required>
+            <label class="form-label" for="register-password">设置密码（至少 12 位）</label><input id="register-password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required>
+            <button type="submit" class="secondary">发送验证邮件</button>
+          </form>
+        </details>
+        <p id="email-register-unavailable" class="form-note">邮箱注册将在发信服务配置完成后开放。已有邮箱账户仍可登录。</p>
         <div class="divider">或使用邀请凭据</div>
         <details><summary>输入账户管理令牌</summary>
           <form id="login-form">
@@ -277,7 +297,23 @@
           </form>
         </div>
       </section>
+      <section id="email-link-section" class="card section-card" hidden>
+        <h2>账户登录方式</h2><p class="muted">为当前设备空间绑定邮箱密码，之后可直接使用邮箱登录同一个空间。</p>
+        <form id="email-link-form" class="agent-grid">
+          <label><span class="form-label">邮箱</span><input id="link-email" type="email" autocomplete="email" required></label>
+          <label><span class="form-label">设置密码（至少 12 位）</span><input id="link-password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></label>
+          <button type="submit">发送验证邮件</button>
+        </form>
+      </section>
     </section>
+    <dialog id="edit-client-dialog" aria-labelledby="edit-client-title">
+      <form id="edit-client-form">
+        <h2 id="edit-client-title">编辑设备授权</h2>
+        <p class="form-note">更改后现有 MCP 令牌继续有效，访问范围立即更新。</p>
+        <fieldset><legend>允许访问的设备</legend><div id="edit-device-choices"></div></fieldset>
+        <div class="dialog-actions"><button id="edit-client-cancel" type="button" class="secondary">取消</button><button type="submit">保存授权</button></div>
+      </form>
+    </dialog>
     <footer>JellyHere 开源开发测试工具 · 手机端可随时暂停远程访问 · <a href="https://github.com/AsCat/jellyhere" rel="noopener noreferrer">源码与文档</a></footer>
   </main>
 </body>

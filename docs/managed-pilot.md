@@ -1,14 +1,14 @@
 # JellyHub 托管试验
 
-此模式适合少量开发者共用一个 Go relay。每个账户有独立设备空间；设备令牌和 MCP 客户端令牌分开签发。配置 GitHub OAuth 后，新用户可用 GitHub 登录并扫码绑定 Android；未配置时仍可用邀请管理令牌。当前单实例上限 100 个账户，属于托管试验，尚无计费、多节点高可用或消费交易授权。现有单用户自托管模式与个人实例不需要迁移。
+此模式适合少量开发者共用一个 Go relay。每个账户有独立设备空间；设备令牌和 MCP 客户端令牌分开签发。用户可通过 GitHub 登录；配置 SMTP 后也可用邮箱密码注册，验证邮箱后创建空间。GitHub 用户可在原空间绑定邮箱密码，之后任选一种方式登录。未配置时仍可用邀请管理令牌。当前单实例上限 100 个账户，属于托管试验，尚无计费、多节点高可用或消费交易授权。
 
 ## 用户操作
 
-1. 打开托管站点，点击“使用 GitHub 登录”。首次登录会自动创建自己的设备空间。
+1. 打开托管站点，使用 GitHub 登录；若站点配置了 SMTP，也可输入邮箱和密码注册，打开验证邮件后进入自己的设备空间。已有 GitHub 空间可在登录后绑定邮箱密码，避免生成第二个空间。
 2. 在“我的设备”点击“添加设备”，下载正式签名的 Android APK，安装并打开果冻。
 3. 网页点击“生成添加设备二维码”；手机 App 点击“扫码连接”，核对服务器和设备空间，再确认绑定。二维码 5 分钟有效、只能兑换一次；票据不包含可长期使用的设备令牌。手机自动保存设备连接配置并发起 WSS 连接。连接在其他服务器上的手机不会自动出现在当前空间；扫码切换后，原服务器将显示它离线。
 4. 首次使用需由用户在 Android 系统设置里手动启用果冻无障碍服务。可按需允许通知、后台运行。
-5. 回到网页，在设备卡片确认设备在线，再为自己的 Codex 或其他智能体创建单独的只读或测试控制 MCP 令牌。绑定手机本身不会授权任何智能体。托管模式的手机悬浮菜单也可打开当前服务器的移动版控制台。
+5. 回到网页，在设备卡片确认设备在线，再为自己的 Codex 或其他智能体创建单独的只读或测试控制 MCP 令牌。绑定手机本身不会授权任何智能体；已授权的客户端可以在管理页编辑设备范围，令牌保持有效。托管模式的手机悬浮菜单也可打开当前服务器的移动版控制台。
 
 扫码时请求相机权限。旧版 Android App 仍可手动填写服务器地址、设备 ID 和令牌。登录会话和未兑换的二维码票据目前保存在 Go 进程内；服务重启后需重新登录或重新生成二维码，已绑定设备凭据不会丢失。账户、设备及令牌哈希保存在单进程 JSON 状态文件中；扩大开放注册规模前应迁到数据库。
 
@@ -23,6 +23,24 @@ JELLYHERE_GITHUB_CLIENT_SECRET=<client secret>
 ```
 
 重启 `jellyhere-managed.service` 后，`GET /auth/config` 的 `github_enabled` 应为 `true`，首页才显示 GitHub 登录按钮。不要把 secret 放入 Git、网页或 APK。公网 Nginx 应转发 `/auth/`、`/pair/` 和 `/tenant/`，并提供固定签名的 `/download/jellyhere.apk`；`/manage/tenants` 仍只在本机访问。OAuth state、会话 Cookie 和网页写操作的 Origin 均由服务端校验。
+
+## 配置邮箱注册与登录
+
+邮箱注册默认关闭，邮箱密码登录入口保留。未配置 SMTP 时，维护者可以在**仅本机开放**的操作员接口创建独立测试账户，供连接器审核使用；不要把自己的手机设备空间交给审核账号。配置 SMTP 后，`GET /auth/config` 的 `email_registration_enabled` 变为 `true`，用户可以注册或在已有 GitHub 空间中绑定邮箱。验证链接 15 分钟有效，验证完成前不会创建账户；密码使用 Argon2id 加独立盐存储。登录尝试有限流。邮箱密码是 JellyHub 的网页登录方式，不会直接充当 MCP 令牌或 WorkBuddy 的 OAuth 凭据。当前尚未提供忘记密码自助重置，正式扩大开放前必须补齐。
+
+操作员在服务器本机可调用 `POST /manage/email-accounts`，提交 `{"email":"reviewer@example.com","password":"<至少 12 位随机密码>"}` 并携带操作员 Bearer 令牌。不传 `tenant_id` 时会创建全新空设备空间；传已有 `tenant_id` 时只为该空间增加一种登录方式。响应不回显密码。此接口不可经 Nginx 公开，测试密码须从凭据管理器单独交付，不要写入仓库或聊天记录。
+
+发信服务可使用支持 STARTTLS 的 SMTP 服务。阿里云邮件推送的接入步骤是：开通服务，创建独立发信子域名并按控制台要求配置 DNS 记录，验证域名，创建发信地址并单独设置 SMTP 密码。阿里云杭州区的 SMTP 地址为 `smtpdm.aliyun.com`，可用端口 `80` 的 STARTTLS；配置时不要用 ECS 默认受限的 25 端口。把下列环境变量放入仅服务账户可读的 `/etc/jellyhere/managed.env`，重启服务，再用自己可接收邮件的邮箱做一次注册验收：
+
+```text
+JELLYHERE_SMTP_HOST=smtpdm.aliyun.com
+JELLYHERE_SMTP_PORT=80
+JELLYHERE_SMTP_USER=hello@mail.example.com
+JELLYHERE_SMTP_PASSWORD=<SMTP 专用密码>
+JELLYHERE_SMTP_FROM=hello@mail.example.com
+```
+
+`SMTP_USER` 与 `SMTP_FROM` 应使用同一个已验证发信地址。后端要求 STARTTLS；服务端不回显 SMTP 凭据。SMTP 未配置时，不在首页展示注册表单，但已有邮箱账户仍可登录。
 
 ## 启动独立实例
 
@@ -90,7 +108,7 @@ systemd 会创建单独的可写状态目录；状态文件保持 `0600`。Go �
 
    手机果冻 App 的服务器地址填写 `wss://managed.example.com/device`，设备 ID 填 `primary`，设备令牌填第一条响应的 `device_token`。App 保存时会自行在 URL 附加 `?id=primary`。Codex、WorkBuddy 或 `jellyhere` CLI 填写 `https://managed.example.com/mcp` 与第二条响应的 `mcp_token`。手机与电脑仍只发起出站连接，不要求同一局域网。`viewer` 只能查看状态、屏幕与应用信息；确需开发控制时另建 `controller` 客户端。客户端凭据始终限定明确列出的设备 ID。
 
-3. 用户可用 `GET /tenant` 查看自己的设备在线状态和已授权客户端。`DELETE /tenant/clients/{id}` 撤销单个智能体令牌；`DELETE /tenant/devices/{id}` 断开手机并撤销包含该设备的客户端令牌；`POST /tenant/owner-token/rotate` 更换账户管理令牌，旧令牌随即失效。撤销阻止后续请求，已经发送到手机的动作可能仍需等待结束。
+3. 用户可用 `GET /tenant` 查看自己的设备在线状态和已授权客户端。`PATCH /tenant/clients/{id}` 携带 `{"device_ids":["primary","samsung"]}` 可调整该客户端的设备范围，原令牌和只读/控制权限保持不变；`DELETE /tenant/clients/{id}` 撤销单个智能体令牌；`DELETE /tenant/devices/{id}` 断开手机并撤销包含该设备的客户端令牌；`POST /tenant/owner-token/rotate` 更换账户管理令牌，旧令牌随即失效。撤销阻止后续请求，已经发送到手机的动作可能仍需等待结束。
 
 当前限制：每个 MCP 客户端每分钟最多 60 个 HTTP 请求；单实例最多 100 个租户，每租户最多 8 台设备和 16 个 MCP 客户端。模式使用单个 Go 进程和本地状态文件；规模扩大后需引入数据库、持久会话、配额和运营流程。支付、最终下单仍需独立的手机端确认机制，不由 `controller` 令牌代替。
 

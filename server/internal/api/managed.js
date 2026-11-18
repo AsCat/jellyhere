@@ -4,7 +4,10 @@
   const byId = (id) => document.getElementById(id);
   const key = "jellyhere-managed-owner-token";
   let ownerToken = "";
-  let githubSession = false;
+  let accountSession = false;
+  let emailRegistrationEnabled = false;
+  let currentDevices = [];
+  let editingClientID = "";
   let pairingKnownDevices = null;
   let setupTouched = false;
   let refreshing = false;
@@ -31,7 +34,7 @@
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const error = new Error(response.status === 401 ? "登录已失效，请重新登录" : (data.error?.message || "请求失败 (" + response.status + ")"));
+      const error = new Error(response.status === 401 && !path.startsWith("/auth/email/") ? "登录已失效，请重新登录" : (data.error?.message || "请求失败 (" + response.status + ")"));
       error.status = response.status;
       throw error;
     }
@@ -96,6 +99,26 @@
     const summary = element("div");
     summary.append(element("strong", "", client.name || client.id));
     summary.append(element("span", "", (client.scope === "viewer" ? "只读" : "开发测试控制") + " · " + (client.device_ids || []).length + " 台设备"));
+    const actions = element("div", "agent-actions");
+    const edit = element("button", "ghost", "编辑设备");
+    edit.type = "button";
+    edit.addEventListener("click", () => {
+      editingClientID = client.id;
+      byId("edit-client-title").textContent = "编辑“" + (client.name || client.id) + "”的设备授权";
+      const choices = byId("edit-device-choices");
+      choices.replaceChildren();
+      for (const device of currentDevices) {
+        const label = element("label", "choice");
+        const check = element("input");
+        check.type = "checkbox";
+        check.value = device.id;
+        check.checked = (client.device_ids || []).includes(device.id);
+        label.append(check, element("span", "", deviceTitle(device) + " · " + device.id));
+        choices.append(label);
+      }
+      byId("edit-client-dialog").showModal();
+    });
+    actions.append(edit);
     const revoke = element("button", "ghost danger", "撤销");
     revoke.type = "button";
     revoke.setAttribute("aria-label", "撤销 " + (client.name || client.id) + " 的授权");
@@ -107,7 +130,8 @@
         notice("智能体授权已撤销");
       } catch (error) { notice(error.message); }
     });
-    card.append(summary, revoke);
+    actions.append(revoke);
+    card.append(summary, actions);
     return card;
   }
   function renderChoices(devices) {
@@ -135,6 +159,7 @@
     try {
       const data = await request("/tenant");
       const devices = data.devices || [];
+      currentDevices = devices;
       const clients = data.clients || [];
       byId("login").hidden = true;
       byId("dashboard").hidden = false;
@@ -164,7 +189,7 @@
     } catch (error) {
       if (error.status === 401) {
         ownerToken = "";
-        githubSession = false;
+        accountSession = false;
         try { sessionStorage.removeItem(key); } catch (_) { /* Storage may be disabled. */ }
         byId("dashboard").hidden = true;
         byId("login").hidden = false;
@@ -186,6 +211,44 @@
     event.preventDefault();
     try { await login(byId("owner-token").value.trim()); }
     catch (error) { notice(error.message); }
+  });
+  byId("email-login-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      await request("/auth/email/login", "POST", { email: byId("login-email").value.trim(), password: byId("login-password").value });
+      byId("login-password").value = "";
+      accountSession = true;
+      await refresh();
+      notice("");
+    } catch (error) { notice(error.message); }
+  });
+  byId("email-register-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      await request("/auth/email/register", "POST", { email: byId("register-email").value.trim(), password: byId("register-password").value });
+      byId("register-password").value = "";
+      notice("如果邮箱可注册，验证邮件已发送。请在 15 分钟内打开邮件中的链接。");
+    } catch (error) { notice(error.message); }
+  });
+  byId("email-link-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      await request("/auth/email/link", "POST", { email: byId("link-email").value.trim(), password: byId("link-password").value });
+      byId("link-password").value = "";
+      notice("验证邮件已发送。请在 15 分钟内打开邮件中的链接完成绑定。");
+    } catch (error) { notice(error.message); }
+  });
+  byId("edit-client-cancel").addEventListener("click", () => byId("edit-client-dialog").close());
+  byId("edit-client-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const ids = [...byId("edit-device-choices").querySelectorAll("input:checked")].map((input) => input.value);
+    if (!ids.length) { notice("请至少选择一台设备"); return; }
+    try {
+      await request("/tenant/clients/" + encodeURIComponent(editingClientID), "PATCH", { device_ids: ids });
+      byId("edit-client-dialog").close();
+      await refresh();
+      notice("设备授权已更新，原 MCP 令牌继续有效");
+    } catch (error) { notice(error.message); }
   });
   byId("add-device-trigger").addEventListener("click", () => showSetup(byId("add-device").hidden));
   byId("close-add-device").addEventListener("click", () => showSetup(false));
@@ -233,8 +296,8 @@
     if (!byId("dashboard").hidden) refresh().catch((error) => { byId("sync-status").textContent = "刷新失败：" + error.message; });
   }, 10000);
   byId("logout").addEventListener("click", async () => {
-    if (githubSession) await request("/auth/logout", "POST").catch(() => {});
-    githubSession = false;
+    if (accountSession) await request("/auth/logout", "POST").catch(() => {});
+    accountSession = false;
     ownerToken = "";
     try { sessionStorage.removeItem(key); } catch (_) { /* Storage may be disabled. */ }
     byId("issued-token").value = "";
@@ -245,15 +308,26 @@
   });
   const fragment = new URLSearchParams(location.hash.slice(1));
   const invite = fragment.get("owner");
-  if (invite) history.replaceState(null, "", location.pathname + location.search);
+  const verification = fragment.get("verify");
+  if (invite || verification) history.replaceState(null, "", location.pathname + location.search);
   let saved = "";
   try { saved = sessionStorage.getItem(key) || ""; } catch (_) { /* Storage may be disabled. */ }
   fetch("/auth/config", { cache: "no-store" }).then((r) => r.json()).then((data) => {
     byId("github-login").hidden = !data.github_enabled;
     byId("github-unavailable").hidden = !!data.github_enabled;
+    emailRegistrationEnabled = !!data.email_registration_enabled;
+    byId("email-register-wrap").hidden = !emailRegistrationEnabled;
+    byId("email-register-unavailable").hidden = emailRegistrationEnabled;
+    byId("email-link-section").hidden = !emailRegistrationEnabled;
   }).catch(() => {});
+  if (verification) {
+    request("/auth/email/verify", "POST", { token: verification }).then(() => {
+      accountSession = true;
+      return refresh();
+    }).then(() => notice("邮箱验证完成，已进入设备空间")).catch((error) => notice(error.message));
+  }
   fetch("/auth/session", { cache: "no-store" }).then((r) => {
-    if (r.ok) { githubSession = true; return refresh(); }
-    if (invite || saved) return login(invite || saved);
+    if (r.ok) { accountSession = true; return refresh(); }
+    if (!verification && (invite || saved)) return login(invite || saved);
   }).catch((error) => { ownerToken = ""; notice(error.message); });
 })();
