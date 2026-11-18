@@ -9,6 +9,7 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Point
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -338,8 +339,12 @@ class OrbOverlay(
                 }
                 row.addView(quick, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(6) })
             }
-            val home = menuAction("打开果冻", false).apply { setOnClickListener { openApp() } }
-            row.addView(home, LinearLayout.LayoutParams(0, dp(48), 1f))
+            val console = consoleURL()
+            val destination = menuAction(if (console != null) "打开控制台" else "打开果冻", false).apply {
+                contentDescription = if (console != null) "打开设备空间控制台" else "打开果冻 App"
+                setOnClickListener { if (console != null) openConsole(console) else openApp() }
+            }
+            row.addView(destination, LinearLayout.LayoutParams(0, dp(48), 1f))
             panel.addView(row, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(6) })
         }
         panel.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
@@ -383,6 +388,25 @@ class OrbOverlay(
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or
                     Intent.FLAG_ACTIVITY_SINGLE_TOP))
         }.onFailure { showMessage("无法打开果冻：${it.message}") }
+    }
+
+    private fun consoleURL(): Uri? {
+        val managed = prefs.getString("connection_mode", null) == "managed" ||
+            (!prefs.contains("connection_mode") &&
+                (prefs.getString("device_id", "") ?: "").startsWith("phone_"))
+        if (!managed) return null
+        val deviceURL = runCatching { Uri.parse(prefs.getString("url", "") ?: "") }.getOrNull()
+            ?: return null
+        if (deviceURL.scheme != "wss" || deviceURL.host.isNullOrBlank()) return null
+        return deviceURL.buildUpon().scheme("https").encodedPath("/").encodedQuery(null)
+            .fragment(null).build()
+    }
+
+    private fun openConsole(url: Uri) {
+        hideMenu()
+        runCatching {
+            service.startActivity(Intent(Intent.ACTION_VIEW, url).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }.onFailure { showMessage("无法打开控制台：${it.message}") }
     }
 
     private fun hideMenu() {

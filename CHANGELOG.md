@@ -4,6 +4,7 @@ This file records changes from the first public preview onward. Until a tagged r
 
 ## Unreleased
 
+- Redesign the JellyHub login and device dashboard with responsive cards, visible device counts, online status, and a separate add-device flow; add a managed-console shortcut to the Android floating menu.
 - Include the AndroidX runtime classes required by the QR scanner, fixing a launch crash on Samsung.
 - Let managed users name MCP clients in Chinese, keep device selections during dashboard refresh, and default-select a single paired phone.
 - Add optional GitHub login to JellyHub, one-time QR device pairing, a signed Android APK download, and in-app QR scanning. Existing invite credentials continue to work.
