@@ -14,4 +14,4 @@
 
 首个正式 Release 发布前还需核对版本号、准备变更说明、按源码 tag 构建、上传 APK 与校验值，并在至少一台手机上完成从上一正式版的覆盖升级和回滚演练。GitHub 的[Release 文档](https://docs.github.com/en/repositories/releasing-projects-on-github)说明了 tag、发布资源与发行说明的关系。
 
-Go 服务的 Linux amd64/arm64 发布候选包可运行 `./scripts/build-server-release.sh` 构建，结果和 `checksums.sha256` 写入 Git 忽略的 `dist/`。发布前应在对应架构的 Linux 环境启动并验证 `/healthz`；仅交叉编译成功不代表已通过运行时验收。当前 APK 版本为 `0.4.6`，这些本机构建物尚不是公开 v0.5 Release。
+Go 服务的 Linux amd64/arm64 发布候选包可运行 `./scripts/build-server-release.sh` 构建，结果和 `checksums.sha256` 写入 Git 忽略的 `dist/`。发布前应在对应架构的 Linux 环境启动并验证 `/healthz`；仅交叉编译成功不代表已通过运行时验收。当前 APK 版本为 `0.5.3`，这些本机构建物尚不是公开 GitHub Release。

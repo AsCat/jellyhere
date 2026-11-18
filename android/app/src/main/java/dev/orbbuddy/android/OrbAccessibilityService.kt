@@ -146,11 +146,6 @@ class OrbAccessibilityService : AccessibilityService() {
                 prefs().edit().putBoolean("orb_enabled", false).apply()
                 syncOverlay()
                 notifyStateChanged()
-            }, onPairCodeRequest = { scope ->
-                val target = if (scope == "controller") prefs().getString("control_package", "") ?: "" else ""
-                val result = PairingCode.create(this, scope, target)
-                notifyStateChanged()
-                result
             }, onWirelessDebugRequest = { wirelessShortcut?.start() })
         }
         syncOverlay()

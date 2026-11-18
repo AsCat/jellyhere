@@ -35,7 +35,10 @@ import org.json.JSONObject
 
 class MainActivity : Activity() {
     private lateinit var status: TextView
+    private lateinit var scanButton: Button
     private lateinit var pauseButton: Button
+    private lateinit var advancedButton: Button
+    private lateinit var temporaryAccess: LinearLayout
     private lateinit var orbSwitch: Switch
     private lateinit var pairStatus: TextView
     private lateinit var apiStatus: TextView
@@ -61,20 +64,21 @@ class MainActivity : Activity() {
             layout.addView(view, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
         add(TextView(this).apply {
-            text = "果冻 JellyHere · 开发测试会话"
+            text = "果冻 JellyHere"
             textSize = 22f
         })
         add(TextView(this).apply {
-            text = "加入 JellyHub：在网页登录并生成二维码，然后用手机扫码。首次使用还需手动开启无障碍服务。自托管用户可继续手动配置。"
+            text = "扫码连接设备空间，开启无障碍服务，就可以从电脑查看和测试这台手机。"
         })
-        add(Button(this).apply {
-            text = "扫码加入 JellyHub"
+        scanButton = Button(this).apply {
+            text = "扫码连接"
             setOnClickListener {
                 IntentIntegrator(this@MainActivity).setDesiredBarcodeFormats(IntentIntegrator.QR_CODE)
-                    .setPrompt("扫描 JellyHub 添加设备二维码").setBeepEnabled(false)
+                    .setPrompt("扫描果冻设备二维码").setBeepEnabled(false)
                     .setOrientationLocked(false).initiateScan()
             }
-        })
+        }
+        add(scanButton)
         val manual = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
         add(Button(this).apply {
             text = "自托管 / 手动配置"
@@ -103,7 +107,17 @@ class MainActivity : Activity() {
         tokenInput = token
         manual.addView(token)
         status = TextView(this)
+        add(TextView(this).apply { text = "设备状态"; textSize = 18f })
         add(status)
+        pauseButton = Button(this).apply {
+            setOnClickListener {
+                prefs.edit().putBoolean("paused", !prefs.getBoolean("paused", false)).apply()
+                sendBroadcast(Intent(OrbAccessibilityService.ACTION_ORB_CHANGED).setPackage(packageName))
+                startSessionKeeper()
+                refreshStatus()
+            }
+        }
+        add(pauseButton)
         manual.addView(Button(this).apply {
             text = "保存并连接"
             setOnClickListener {
@@ -134,6 +148,7 @@ class MainActivity : Activity() {
                 url.setText(updatedURL)
                 prefs.edit().putString("url", updatedURL).putString("device_id", id)
                     .putString("token", token.text.toString())
+                    .putString("connection_mode", "selfhost")
                     .putBoolean("enabled", true).putBoolean("paused", false).apply()
                 startSessionKeeper()
                 if (Build.VERSION.SDK_INT >= 33 &&
@@ -152,6 +167,7 @@ class MainActivity : Activity() {
             text = "后台连接与省电设置"
             setOnClickListener { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
         })
+        add(TextView(this).apply { text = "开发工具"; textSize = 18f })
         add(Button(this).apply {
             text = "打开无线调试设置"
             setOnClickListener { openWirelessDebuggingSettings() }
@@ -211,23 +227,28 @@ class MainActivity : Activity() {
         }
         markSelected(OrbCharacter.from(prefs.getString("orb_character", null)))
         add(characters)
-        pauseButton = Button(this).apply {
-            setOnClickListener {
-                prefs.edit().putBoolean("paused", !prefs.getBoolean("paused", false)).apply()
-                sendBroadcast(Intent(OrbAccessibilityService.ACTION_ORB_CHANGED).setPackage(packageName))
-                startSessionKeeper()
-                refreshStatus()
-            }
+        val advanced = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+        advancedButton = Button(this).apply {
+            setOnClickListener { advanced.visibility = if (advanced.visibility == View.GONE) View.VISIBLE else View.GONE }
         }
-        add(pauseButton)
-        add(TextView(this).apply {
+        add(advancedButton)
+        add(advanced)
+        temporaryAccess = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        advanced.addView(temporaryAccess)
+        fun addAdvanced(view: View) {
+            advanced.addView(view, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+        fun addTemporary(view: View) {
+            temporaryAccess.addView(view, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+        addTemporary(TextView(this).apply {
             text = "HTTPS 临时授权：4 位口令只用于 60 秒内配对，配对后的令牌空闲 5 分钟、最长 30 分钟失效。"
         })
         pairStatus = TextView(this)
-        add(pairStatus)
+        addTemporary(pairStatus)
         apiStatus = TextView(this)
-        add(apiStatus)
-        add(Button(this).apply {
+        addTemporary(apiStatus)
+        addTemporary(Button(this).apply {
             text = "生成只读口令（60 秒）"
             setOnClickListener { createPairCode("viewer", "") }
         })
@@ -236,8 +257,8 @@ class MainActivity : Activity() {
             setText(prefs.getString("control_package", ""))
             inputType = android.text.InputType.TYPE_CLASS_TEXT
         }
-        add(controlPackage)
-        add(Button(this).apply {
+        addTemporary(controlPackage)
+        addTemporary(Button(this).apply {
             text = "生成开发测试控制口令（60 秒）"
             setOnClickListener {
                 val packageName = controlPackage.text.toString().trim()
@@ -245,7 +266,7 @@ class MainActivity : Activity() {
                 createPairCode("controller", packageName)
             }
         })
-        add(Button(this).apply {
+        addTemporary(Button(this).apply {
             text = "立即撤销 HTTPS 授权"
             setOnClickListener {
                 prefs.edit().putBoolean("api_auth_active", false).remove("api_grant_id")
@@ -254,7 +275,7 @@ class MainActivity : Activity() {
                 refreshStatus()
             }
         })
-        add(Button(this).apply {
+        addAdvanced(Button(this).apply {
             text = "停止测试会话"
             setOnClickListener {
                 prefs.edit().putBoolean("api_auth_active", false).remove("api_grant_id").remove("pair_code").apply()
@@ -324,6 +345,7 @@ class MainActivity : Activity() {
                 val token = result.getString("device_token")
                 getSharedPreferences("connection", MODE_PRIVATE).edit().putString("url", url)
                     .putString("device_id", id).putString("token", token)
+                    .putString("connection_mode", "managed")
                     .putBoolean("enabled", true).putBoolean("paused", false).apply()
                 runOnUiThread {
                     serverInput.setText(url)
@@ -392,6 +414,11 @@ class MainActivity : Activity() {
         orbSwitch.isChecked = prefs.getBoolean("orb_enabled", false)
         refreshing = false
         val enabled = prefs.getBoolean("enabled", false)
+        val managed = prefs.getString("connection_mode", null) == "managed" ||
+            (!prefs.contains("connection_mode") && configuredDeviceID(prefs).startsWith("phone_"))
+        temporaryAccess.visibility = if (managed) View.GONE else View.VISIBLE
+        advancedButton.text = if (managed) "高级操作" else "临时 HTTPS 授权与高级操作"
+        scanButton.text = if (enabled) "更换连接（扫码）" else "扫码连接"
         val paused = prefs.getBoolean("paused", false)
         pauseButton.isEnabled = enabled
         pauseButton.text = if (paused) "继续远程访问" else "暂停远程访问"

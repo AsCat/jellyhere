@@ -24,13 +24,12 @@ import android.widget.TextView
 import android.widget.Toast
 import kotlin.math.abs
 
-/** An optional, locally controlled accessibility overlay. Codes still require server pairing. */
+/** An optional, locally controlled accessibility overlay. */
 class OrbOverlay(
     private val service: OrbAccessibilityService,
     private val onPauseToggle: () -> Unit,
     private val onAPIRevoke: () -> Unit,
     private val onHide: () -> Unit,
-    private val onPairCodeRequest: (String) -> PairingCode.Result,
     private val onWirelessDebugRequest: () -> Unit,
 ) {
     private val manager = service.getSystemService(WindowManager::class.java)
@@ -49,10 +48,7 @@ class OrbOverlay(
     private var bubbleDetail: TextView? = null
     private var bubbleAction: TextView? = null
     private var positionAnimator: ValueAnimator? = null
-    private var menuStatus: TextView? = null
-    private var pauseAction: TextView? = null
-    private var codeLine: TextView? = null
-    private var menuNotice = ""
+    private var menuMore = false
     private var receiverRegistered = false
     private var captureHidden = false
     private var paused = false
@@ -67,14 +63,8 @@ class OrbOverlay(
     private var activeRemoteLabel: String? = null
     private var activeRemoteId: String? = null
     private val autoPeek = Runnable { if (menu == null && !captureHidden) dock() }
+    private val dismissMenu = Runnable { hideMenu(); schedulePeek() }
     private val dismissBubble = Runnable { hideBubble(); schedulePeek() }
-    private val codeTicker = object : Runnable {
-        override fun run() {
-            if (menu == null) return
-            refreshCodeLine()
-            handler.postDelayed(this, 1000L)
-        }
-    }
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -92,13 +82,15 @@ class OrbOverlay(
             this.paused = paused
             this.connected = status == "已连接"
             this.character = OrbCharacter.from(prefs.getString("orb_character", null))
-            contentDescription = "果冻悬浮球，${if (paused) "已暂停" else if (apiActive) "HTTPS 远程访问中" else status}。点击可展开，展开后再次点击打开会话控制；长按开启无线调试，拖动可移动"
+            contentDescription = "果冻悬浮球，${if (paused) "已暂停" else status}。点击打开控制菜单，拖动可移动"
             invalidate()
         }
-        menuStatus?.text = statusLabel()
-        pauseAction?.text = if (paused) "继续远程访问" else "暂停远程访问"
+        if (menu != null) {
+            val more = menuMore
+            hideMenu()
+            showMenu(more)
+        }
         bubbleAction?.text = if (paused) "恢复" else "暂停"
-        refreshCodeLine()
         if (pauseChanged && show) {
             activeRemoteLabel = null
             activeRemoteId = null
@@ -152,10 +144,17 @@ class OrbOverlay(
     fun destroy() = hide()
 
     private fun statusLabel() = when {
-        paused && apiActive -> "HTTPS 已授权 · 暂停中"
-        paused -> "远程访问已暂停"
-        apiActive -> "HTTPS 远程访问中"
+        paused -> "果冻 · 已暂停"
+        activeRemoteLabel != null -> "果冻 · 正在操作"
         else -> "果冻 · $connectionStatus"
+    }
+
+    private fun statusDetail() = when {
+        paused -> "后续读屏与操作已阻止"
+        activeRemoteLabel != null -> "正在${activeRemoteLabel}，可暂停后续操作"
+        connectionStatus == "已连接" && apiActive -> "临时授权正在使用"
+        connectionStatus == "已连接" -> "当前空闲，等待智能体"
+        else -> "打开果冻查看连接状态"
     }
 
     private fun show() {
@@ -246,15 +245,11 @@ class OrbOverlay(
                     orb?.let { manager.updateViewLayout(it, params) }
                     prefs.edit().putInt("orb_x", params.x).putInt("orb_y", params.y).apply()
                     dock()
-                } else if (!dragging && !endedAway && event.eventTime - downAt >= ViewConfiguration.getLongPressTimeout()) {
-                    onWirelessDebugRequest()
                 } else {
                     params.x = startX
                     params.y = startY
                     orb?.let { manager.updateViewLayout(it, params) }
-                    if (isDocked()) {
-                        showBubble(statusLabel(), "点星星可打开会话控制", 4000L)
-                    } else toggleMenu()
+                    toggleMenu()
                 }
                 return true
             }
@@ -268,121 +263,133 @@ class OrbOverlay(
     }
 
     private fun toggleMenu() {
-        if (menu != null) {
-            hideMenu()
-            schedulePeek()
-            return
-        }
+        if (menu != null) { hideMenu(); schedulePeek() } else showMenu(false)
+    }
+
+    private fun showMenu(more: Boolean) {
         handler.removeCallbacks(autoPeek)
         hideBubble()
         reveal()
         val params = orbParams ?: return
         val screen = displaySize()
-        val width = dp(236)
-        val x = (if (params.x < screen.x / 2) params.x else params.x + size - width)
+        val width = dp(226)
+        val left = params.x + size / 2 < screen.x / 2
+        val x = (if (left) dp(8) else screen.x - width - dp(8))
             .coerceIn(0, (screen.x - width).coerceAtLeast(0))
-        val hasRevokeAction = apiActive || PairingCode.active(service) != null
-        val menuHeight = dp(if (hasRevokeAction) 413 else 365)
-        val y = (if (params.y > menuHeight + dp(10)) params.y - menuHeight else params.y + size + dp(8))
-            .coerceIn(0, (screen.y - menuHeight).coerceAtLeast(0))
         val panel = LinearLayout(service).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(14), dp(9), dp(14), dp(9))
+            setPadding(dp(10), dp(10), dp(10), dp(10))
             background = GradientDrawable().apply {
-                setColor(Color.rgb(248, 252, 255))
+                setColor(Color.rgb(255, 252, 246))
                 cornerRadius = dp(18).toFloat()
-                setStroke(dp(1), Color.rgb(191, 228, 241))
+                setStroke(dp(1), Color.rgb(240, 214, 171))
             }
             elevation = dp(8).toFloat()
         }
-        menuStatus = menuLine(statusLabel(), false).also(panel::addView)
-        codeLine = TextView(service).apply {
-            textSize = 20f
-            setTextColor(Color.rgb(17, 80, 112))
-            typeface = android.graphics.Typeface.MONOSPACE
-            gravity = Gravity.CENTER_VERTICAL
-            minHeight = dp(45)
-        }.also(panel::addView)
-        refreshCodeLine()
-        menuLine("生成只读授权码", true).also {
-            it.setOnClickListener { generateCode("viewer") }
-            panel.addView(it)
-        }
-        menuLine("生成测试控制码", true).also {
-            it.setOnClickListener { generateCode("controller") }
-            panel.addView(it)
-        }
-        menuLine("开启无线调试", true).also {
-            it.setOnClickListener {
-                hideMenu()
-                onWirelessDebugRequest()
+        if (more) {
+            addMenuAction(panel, "‹  返回控制面板") { hideMenu(); showMenu(false) }
+            if (apiActive || PairingCode.active(service) != null) {
+                addMenuAction(panel, "撤销临时授权") { hideMenu(); onAPIRevoke() }
             }
-            panel.addView(it)
-        }
-        pauseAction = menuLine(if (paused) "继续远程访问" else "暂停远程访问", true).also {
-            it.setOnClickListener {
-                hideMenu()
-                onPauseToggle()
+            addMenuAction(panel, "收起到边缘") { hideMenu(); dock() }
+            addMenuAction(panel, "隐藏悬浮角色") { hideMenu(); onHide() }
+            addMenuAction(panel, "打开果冻") { openApp() }
+        } else {
+            val header = LinearLayout(service).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+            val statusText = TextView(service).apply {
+                text = "●  ${statusLabel()}"
+                textSize = 13f
+                setTextColor(if (paused) Color.GRAY else Color.rgb(77, 89, 62))
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                gravity = Gravity.CENTER_VERTICAL
             }
-            panel.addView(it)
-        }
-        if (hasRevokeAction) menuLine(if (apiActive) "撤销 HTTPS 授权" else "清除当前授权码", true).also {
-            it.setOnClickListener {
-                hideMenu()
-                onAPIRevoke()
+            header.addView(statusText, LinearLayout.LayoutParams(0, dp(44), 1f))
+            val moreButton = menuAction("⋯", false).apply {
+                textSize = 20f
+                contentDescription = "更多选项"
+                background = null
+                setOnClickListener { hideMenu(); showMenu(true) }
             }
-            panel.addView(it)
-        }
-        menuLine("隐藏悬浮球", true).also {
-            it.setOnClickListener {
-                hideMenu()
-                onHide()
+            header.addView(moreButton, LinearLayout.LayoutParams(dp(44), dp(44)))
+            panel.addView(header)
+            TextView(service).apply {
+                text = statusDetail()
+                textSize = 12f
+                setTextColor(Color.rgb(112, 124, 143))
+                gravity = Gravity.CENTER_VERTICAL
+                minHeight = dp(28)
+            }.also(panel::addView)
+            val connected = connectionStatus == "已连接"
+            val actionLabel = when {
+                !connected -> "查看连接问题"
+                paused -> "恢复远程访问"
+                activeRemoteLabel != null -> "暂停后续操作"
+                else -> "暂停远程访问"
             }
-            panel.addView(it)
+            addMenuAction(panel, actionLabel, true) {
+                hideMenu()
+                if (connected) onPauseToggle() else openApp()
+            }
+            val row = LinearLayout(service).apply { orientation = LinearLayout.HORIZONTAL }
+            if (connected && !paused && activeRemoteLabel == null) {
+                val quick = menuAction("无线调试", false).apply {
+                    contentDescription = "打开无线调试设置"
+                    setOnClickListener { hideMenu(); onWirelessDebugRequest() }
+                }
+                row.addView(quick, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(6) })
+            }
+            val home = menuAction("打开果冻", false).apply { setOnClickListener { openApp() } }
+            row.addView(home, LinearLayout.LayoutParams(0, dp(48), 1f))
+            panel.addView(row, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(6) })
         }
+        panel.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
+        val menuHeight = panel.measuredHeight
+        val above = params.y - menuHeight - dp(8)
+        val y = (if (above >= dp(8)) above else params.y + size + dp(8))
+            .coerceIn(0, (screen.y - menuHeight).coerceAtLeast(0))
         try {
             manager.addView(panel, layoutParams(width, WindowManager.LayoutParams.WRAP_CONTENT, x, y))
             menu = panel
-            handler.postDelayed(codeTicker, 1000L)
+            menuMore = more
+            handler.postDelayed(dismissMenu, 20_000L)
         } catch (e: RuntimeException) {
-            menuStatus = null
-            pauseAction = null
-            codeLine = null
             Log.w("JellyHere", "cannot show orb controls", e)
         }
     }
 
-    private fun generateCode(scope: String) {
-        hideMenu()
-        val result = onPairCodeRequest(scope)
-        menuNotice = if (result.code == null) result.message else ""
-        toggleMenu()
-    }
-
-    private fun refreshCodeLine() {
-        val active = PairingCode.active(service)
-        codeLine?.textSize = if (active == null) 13f else 20f
-        codeLine?.text = when {
-            active != null -> "${if (active.scope == "controller") "控制" else "只读"} ${active.code} · ${active.secondsLeft} 秒"
-            menuNotice.isNotEmpty() -> menuNotice
-            else -> "当前无有效授权码"
+    private fun menuAction(label: String, prominent: Boolean): TextView = menuLine(label, true).apply {
+        textSize = 14f
+        gravity = Gravity.CENTER
+        minHeight = dp(48)
+        setTextColor(if (prominent) Color.WHITE else Color.rgb(57, 75, 107))
+        background = GradientDrawable().apply {
+            setColor(if (prominent) Color.rgb(66, 92, 183) else Color.WHITE)
+            cornerRadius = dp(11).toFloat()
+            if (!prominent) setStroke(dp(1), Color.rgb(226, 231, 240))
         }
     }
 
-    private fun hideMenu() {
-        handler.removeCallbacks(codeTicker)
-        menu?.let { runCatching { manager.removeView(it) } }
-        menu = null
-        menuStatus = null
-        pauseAction = null
-        codeLine = null
-        menuNotice = ""
+    private fun addMenuAction(panel: LinearLayout, label: String, prominent: Boolean = false,
+        action: () -> Unit): TextView = menuAction(label, prominent).also {
+        it.setOnClickListener { action() }
+        panel.addView(it, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(6) })
     }
 
-    private fun isDocked(): Boolean {
-        val params = orbParams ?: return false
-        val screen = displaySize()
-        return params.x < 0 || params.x > screen.x - size
+    private fun openApp() {
+        hideMenu()
+        runCatching {
+            service.startActivity(Intent(service, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP))
+        }.onFailure { showMessage("无法打开果冻：${it.message}") }
+    }
+
+    private fun hideMenu() {
+        handler.removeCallbacks(dismissMenu)
+        menu?.let { runCatching { manager.removeView(it) } }
+        menu = null
+        menuMore = false
     }
 
     private fun expandedX(left: Boolean, screen: Point) = if (left) edge else screen.x - size - edge
