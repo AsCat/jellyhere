@@ -1,111 +1,84 @@
 # 果冻 JellyHere
 
-**Your device companion for AI agents. Android first.**
-
 **让智能体，从对话走向行动。**
 
-JellyHere 是连接个人设备与 AI 智能体的开源项目。首版支持 Android 开发测试：手机在移动网络下主动连接中转服务，智能体通过 MCP 按需读屏和操作，无需运行时无线 ADB，也无需同一局域网。iOS 和电脑端将按系统能力逐步接入，详见[平台支持规划](docs/platform-support.md)。
+[![Build and test](https://github.com/AsCat/jellyhere/actions/workflows/ci.yml/badge.svg)](https://github.com/AsCat/jellyhere/actions/workflows/ci.yml) · [Apache-2.0](LICENSE) · Android first · Open source
 
-## 模块
+JellyHere 让 Codex 等通用智能体按需理解手机屏幕、读取界面元素，并在用户允许时点击、滑动、输入和返回结果。Android 手机与电脑分别连接 Go 中转服务，**即使不在同一局域网，运行时也不需要无线 ADB**。项目从开发测试起步，目标是成为智能体连接个人设备的开放入口。
 
-- `android/`：首个设备端，支持 Android 11+。托管模式可扫码绑定，自托管模式可手动填写 `wss://` 地址和设备令牌；用户仍需手动启用无障碍服务。可选卡通悬浮球提供手机端暂停入口。
-- `server/`：单个 Go 进程，接收手机 WebSocket 长连接，并提供 Streamable HTTP MCP 接口；不持久化屏幕内容。
-- `deploy/`：systemd 与 Nginx 部署模板。用户配置自己的域名，Go 只监听本机端口。
-- `tools/jellyhere`：电脑端 CLI，可检查设备和按需恢复无线调试；旧 `orb-adb` 命令继续兼容。
+[快速开始](docs/quickstart.md) · [自托管](docs/self-host.md) · [MCP 接入](docs/client-setup.md) · [CLI 与无线调试](docs/shortcuts.md) · [路线图](docs/roadmap.md)
 
-## 运行原理
+## 看看果冻
+
+<p align="center"><img src="docs/images/jellyhub-dashboard.png" alt="JellyHub 设备空间：两台在线演示设备和独立智能体授权" width="960"></p>
+<p align="center"><sub>JellyHub 控制台 · 演示数据，展示多设备状态与智能体授权</sub></p>
+
+<p align="center"><img src="docs/images/jellyhere-android.jpg" alt="三星真机上的果冻 Android App 首页，包含连接状态、无线调试入口和星星悬浮角色" width="300"></p>
+<p align="center"><sub>Android App · 三星真机截图，未展示授权令牌</sub></p>
+
+## 从一次无线调试重连开始
+
+做 Android 开发时，手机换了 Wi-Fi 或网络环境，无线调试入口和动态端口经常要重新确认。原本只想继续写代码，却得拿起手机，进入开发者选项、打开无线调试、抄下端口，再回到电脑执行 `adb connect`。这件小事重复得足够多，就成了果冻最早要解决的痛点。
+
+于是有了快捷动作：手机端可从悬浮角色打开无线调试；电脑端的 `jellyhere adb connect` 会先确认目标设备在线，再读取当前界面、寻找系统开关、取回**当次**端口并连接 ADB。它会核对操作结果，找不到可靠控件时停下交给用户处理，不沿用过期端口，也不盲点坐标。
+
+继续做下去发现，更有价值的是那条始终可用的设备通道。手机主动通过 WSS 连接中转服务；智能体通过 MCP 查看屏幕和界面树、执行一次操作、再读回结果。无线调试成了其中一个开发快捷动作，而果冻逐渐长出了多设备管理、扫码绑定、独立授权，以及能在手机上随时暂停智能体的悬浮角色。它正在从开发者的小工具，走向可按需使用手机的开源智能体助手。
+
+**今天它服务于 Android 开发测试；未来希望让智能体在用户掌控下，安全地走向更多设备和真实任务。**
+
+## 现在能做什么
+
+| 能力 | 当前实现 |
+| --- | --- |
+| 跨网络连接 | Android 主动连 Go relay；智能体通过 HTTPS MCP 接入，双方无需同一局域网 |
+| 理解屏幕 | `get_screen` 返回无障碍界面树和可选的压缩截图；只需元素时可关闭图片 |
+| 操作界面 | 按元素路径点击，或执行坐标点击、滑动、输入、返回与主页；界面变化后重新读屏 |
+| 多设备 | 为每台设备指定 ID；JellyHub 可查看在线状态，并给每个智能体单独选择设备与只读/控制权限 |
+| 手机端控制 | 星星等悬浮角色可贴边、显示状态和暂停远程访问；提供无线调试快捷入口 |
+| 开发者 CLI | `jellyhere doctor` 检查连接；`jellyhere adb connect --device <id>` 按需恢复本地 ADB |
+
+果冻的 WSS 中转**不转发 ADB 流量**：最后的 `adb connect` 仍要求电脑能访问手机的无线调试端点。手机端无障碍服务也需要用户首次在 Android 设置中手动启用。[能力边界与操作说明](docs/client-setup.md)
+
+## 三步上手
+
+1. **选择入口。** 可以[自行部署轻量 Go relay](docs/self-host.md)，也可以使用你信任的 JellyHub 托管实例。自托管适合个人设备；JellyHub 托管试验按账户隔离设备，支持扫码加入。[托管模式说明](docs/managed-pilot.md)
+2. **连接 Android。** 安装果冻 App，开启无障碍服务并连接 relay。托管模式用二维码绑定；自托管模式手动填写服务器地址与设备令牌。[Android 安装步骤](docs/quickstart.md)
+3. **授权智能体。** 为 Codex 或其他支持 Streamable HTTP MCP 的客户端单独生成令牌，先调用 `device_status`，再明确指定目标 `deviceId` 读屏和操作。[MCP 配置](docs/client-setup.md)
+
+例如，只需要识别当前界面时，可调用：
+
+```json
+{"tool":"get_screen","arguments":{"deviceId":"pixel-demo","includeImage":false,"treeMode":"compact"}}
+```
+
+需要视觉判断时再取压缩截图。点击元素优先使用读屏返回的 `revision` 和 `path`；界面变化后重新读屏。[完整工具与协议](docs/protocol.md)
+
+## 它如何连接
 
 ```text
-Android 无障碍服务 ── WSS/移动网络 ──> 公网可达的 Go relay
-                                                │
-电脑 Codex / WorkBuddy ── HTTPS MCP ────────────┘
+Android 果冻 App ── WSS / 手机移动网络 ──> Go relay / JellyHub
+                                               │
+Codex、其他 MCP 智能体 ── HTTPS MCP ──────────────┘
 ```
 
-**使用者必须有自己的公网 IP 吗？**不必。手机和电脑都主动向中转入口发起出站连接；中转入口可部署在已有 VPS、云主机，或使用自行运营的托管实例。默认自托管模式使用全局设备/MCP 令牌，适合一个人使用，**不能直接给多个互不信任的用户共用**。详见[部署方式与步骤](docs/self-host.md)。
+Go 服务不持久化屏幕内容；手机端可暂停后续读屏和操作。受 Android 保护的窗口、锁屏认证和厂商后台限制仍由系统决定，果冻不会绕过它们。[可靠性说明](docs/self-host.md) · [安全说明](SECURITY.md)
 
-仓库另提供 **JellyHub 托管试验模式**：在独立 Go 进程中按账户隔离设备，支持 GitHub 登录和邮箱密码登录（公开邮箱注册需配置 SMTP），可用 Android App 扫码绑定手机。每个 MCP 客户端有独立令牌，可按设备调整授权范围，或随时撤销。它不改变默认自托管模式；配置和边界见[托管试验指南](docs/managed-pilot.md)。WorkBuddy 的正式 OAuth 连接器另有[接入计划](docs/workbuddy-connector-plan.md)。
+## 项目组成
 
-手机断线后自动退避重连。`get_screen` 默认读取当前无障碍节点树及压缩 JPEG；可用 `includeImage=false` 不取图片、`treeMode=compact` 返回精简元素列表，或设置 `maxImageEdge` 为 320–1280 像素。`tap_element` 使用该次读屏返回的 `revision` 与节点 `path`，界面变化后必须重新读屏。截图被 Android 拒绝或安全窗口遮挡时，仍可返回可见的节点树和 `imageError`。
+| 目录 | 作用 |
+| --- | --- |
+| [`android/`](android/) | Android 11+ 设备端、无障碍服务、悬浮角色与无线调试快捷动作 |
+| [`server/`](server/) | 单进程 Go relay、MCP 接口和 JellyHub 托管模式 |
+| [`tools/`](tools/) | `jellyhere` CLI 与 ADB 重连辅助脚本 |
+| [`deploy/`](deploy/) | systemd、Nginx 部署模板 |
+| [`docs/`](docs/) | 快速开始、协议、平台规划与产品设计 |
 
-息屏时可先用 `get_lock_state` 查询，再显式调用 `wake_screen` 尝试唤亮显示屏。唤亮不等于解锁：设备仍要求 PIN、图案、密码或生物验证时，用户须在手机上完成系统认证，果冻不会代输锁屏凭据。当前屏幕唤醒使用限时的旧版 Android wake lock 标志；不同系统可能拒绝，工具会返回实际 `interactive` 状态。[Android 锁屏接口](https://developer.android.com/reference/android/app/KeyguardManager#requestDismissKeyguard(android.app.Activity,%20android.app.KeyguardManager.KeyguardDismissCallback))
+目前 Android 是实际可用的首个平台。iOS 和电脑端在[平台支持规划](docs/platform-support.md)中分别评估；它们的系统权限不同，不会简单照搬 Android 无障碍方案。WorkBuddy 可先按通用 MCP 方式手动接入，正式 OAuth 连接器仍在[规划中](docs/workbuddy-connector-plan.md)。
 
-开发测试时可显式调用 `keep_screen_on`，在已解锁且屏幕已亮的手机上临时阻止自动熄屏；默认 10 分钟，最长 30 分钟。`get_lock_state.keepAwakeRemainingMs` 可查看剩余时间，`stop_keep_screen_on` 或手机通知的“结束亮屏”可立即停止。果冻暂停、断线或测试会话结束时也会释放；按电源键手动锁屏仍优先于此功能。它使用已弃用但适合当前后台测试场景的 Android 显示屏 wake lock，可能受厂商系统限制，不应当作永久不锁屏设置。[Android 亮屏指南](https://developer.android.com/develop/background-work/background-tasks/awake/screen-on)、[PowerManager 文档](https://developer.android.com/reference/android/os/PowerManager#SCREEN_BRIGHT_WAKE_LOCK)
+## 当前边界与参与开发
 
-## 本地开发
+果冻目前面向开发测试。**尚无外卖下单、支付等最终确认流程**；不要让智能体直接执行付款或最终提交订单。未来若加入这类任务，需由用户在手机端核对订单摘要并单独确认，且支持取消或超时拒绝。
 
-```bash
-cd server
-go test ./...
-JELLYHERE_DEVICE_TOKEN=dev-device JELLYHERE_MCP_TOKEN=dev-mcp go run ./cmd/jellyhere-server
-```
+如果果冻解决了你的一个重复操作，欢迎给项目一个 Star，也欢迎提交真实机型的兼容性报告和 PR。先看[贡献指南](CONTRIBUTING.md)、[行为准则](CODE_OF_CONDUCT.md)与[安全报告方式](SECURITY.md)。本地服务端测试运行 `cd server && go test ./...`；Android 构建方式见[快速开始](docs/quickstart.md)。
 
-另一个终端启动模拟设备：
-
-```bash
-cd server
-JELLYHERE_DEVICE_URL='ws://127.0.0.1:8080/device?id=primary' \
-JELLYHERE_DEVICE_TOKEN=dev-device go run ./cmd/mock-device
-```
-
-Android：用 Android Studio 打开 `android/`，或设置 `ANDROID_HOME` 后运行 `./gradlew :app:assembleDebug`。调试包允许明文 `ws://` 连接本机服务；正式包只接受 `wss://`。手机无需 USB 或无线 ADB 才能正常连接服务器。首次使用需手动安装 App、启用无障碍服务并保存连接配置。会话开启时显示前台通知、持有部分唤醒锁，网络切换时主动重连；**持续会话会增加耗电**，用 App 内“停止测试会话”可释放唤醒锁。用户保持会话开启时，App 会尝试在手机重启或更新后恢复前台会话；厂商后台限制仍可能阻止恢复。
-
-可在 App 内打开卡通悬浮球，并从圆圆、芽芽、星星三款角色中选择。角色有轻微呼吸、眨眼和连接状态点，支持拖动贴边；远程读屏与操作完成后会播放不同的短动画。单击贴边角色即可打开靠边的紧凑菜单，查看连接状态、暂停或恢复远程访问，并按需打开无线调试；托管模式可直接打开当前服务器的网页控制台，自托管模式可打开果冻主界面。更多选项可收起或隐藏角色。自托管模式的临时 HTTPS 授权码在主界面的高级操作区生成和撤销；托管模式在网页管理智能体授权。悬浮球默认关闭，使用无障碍悬浮层；读屏截图和远程手势执行时会暂时隐藏整个悬浮层。详见[快捷操作与多设备](docs/shortcuts.md)和[悬浮角色与授权码](docs/orb-character.md)。
-
-## MCP 工具
-
-| 工具 | 主要参数 | 结果 |
-| --- | --- | --- |
-| `device_status` | 无 | 在线设备、型号、连接时间、最后心跳时间及暂停状态 |
-| `get_screen` | `deviceId?`, `includeImage?`, `maxImageEdge?`, `treeMode?` | 完整节点树或精简元素列表、尺寸、修订号、可选 JPEG |
-| `get_lock_state` | `deviceId?` | 屏幕交互状态、锁屏和认证需求 |
-| `wake_screen` | `deviceId?` | 尝试唤亮屏幕并返回锁屏状态，不输入凭据 |
-| `keep_screen_on` | `deviceId?`, `minutes?` | 已解锁时临时保持亮屏，1–30 分钟，默认 10 分钟 |
-| `stop_keep_screen_on` | `deviceId?` | 提前结束临时保持亮屏 |
-| `tap_element` | `revision`, `path`, `deviceId?` | 点击结果 |
-| `tap` | `x`, `y`, `deviceId?` | 点击结果 |
-| `swipe` | `x1`, `y1`, `x2`, `y2`, `durationMs`, `deviceId?` | 滑动结果 |
-| `input_text` | `text`, `deviceId?` | 替换当前聚焦输入框内容 |
-| `press_key` | `key=back/home`, `deviceId?` | 系统返回或主页 |
-| `get_app_info` | `packageName`, `deviceId?` | 包名、版本、应用名称 |
-| `open_wireless_debugging_settings` | `deviceId?` | 尝试打开无线调试页，系统不支持直达时打开开发者选项 |
-
-只有一台手机在线时可省略 `deviceId`；多台在线时必须指定，如 `primary`（小米）或 `samsung`。坐标使用手机原始像素尺寸，即使 JPEG 缩小也不改变坐标系。协议见 [docs/protocol.md](docs/protocol.md)。
-
-## 部署
-
-Go 服务配置 `JELLYHERE_LISTEN=127.0.0.1:18093`、`JELLYHERE_DEVICE_TOKEN` 和 `JELLYHERE_MCP_TOKEN`；两个令牌分别给手机和 MCP 客户端，保存在服务器 `/etc/jellyhere/server.env`，不要提交到 Git。已有部署的 `ORBBUDDY_*` 环境变量仍受支持。Nginx 负责 HTTPS/WSS。通用步骤见[自托管指南](docs/self-host.md)，迁移步骤见[改名兼容说明](docs/rename-migration.md)。
-
-手机地址：`wss://你的域名/device?id=primary`
-
-MCP 地址：`https://你的域名/mcp`
-
-安装与验收见 [docs/quickstart.md](docs/quickstart.md)，客户端配置见 [docs/client-setup.md](docs/client-setup.md)，手机快捷动作和 `jellyhere` CLI 见 [快捷操作与多设备](docs/shortcuts.md)。发布签名与验证见 [Android 发布签名](docs/release-signing.md)。开源版本路线和 iOS 可行性见 [开源发展计划](docs/open-source-plan.md)，可选托管版见 [SaaS 架构草案](docs/saas-architecture.md)，既有功能进度见 [实施路线](docs/roadmap.md)。
-
-Android 端的新用户接入与悬浮菜单改版方案见[移动端体验规划](docs/mobile-ux-plan.md)，可在浏览器打开[交互预览](docs/prototypes/quick-panel.html)查看不同状态的菜单。
-
-电脑端可执行 `./scripts/install-cli.sh`，随后使用 `jellyhere doctor`、`jellyhere device list` 和 `jellyhere adb connect --device samsung`。仓库根目录的 [AGENTS.md](AGENTS.md) 会让在本项目工作的智能体识别这些命令；跨项目的智能体可在自己的工作目录添加相同约定。CLI 不代替 MCP 工具，`adb connect` 仍需要电脑与无线调试端点网络互通。
-
-## 当前边界与下一步
-
-标准 HTTPS API 与使用说明位于自托管实例首页 `https://你的域名/`，机器可读契约位于同一域名的 `/openapi.json`。手机端可生成短时一次性口令，分别授予只读或指定可调试 App 的测试控制；接口、一次性截图链接、错误与回滚见 [HTTPS API 说明](docs/https-api.md)。原 MCP 入口继续独立运行。
-
-这是面向个人开发测试的首版。无障碍服务能读取的节点由目标 App 决定；`FLAG_SECURE` 等受保护窗口不能保证截图。Android 11+ 的包可见性限制会影响应用信息查询；当前安装包申请 `QUERY_ALL_PACKAGES`，适合开发者侧载，若发布到 Google Play 需按政策重新设计该功能。
-
-目前**没有支付与下单确认流程**，不要让智能体执行付款或最终提交订单。悬浮球的开发测试授权码不代表订单授权。未来增加下单能力时，以手机端本地确认为准：智能体仅可准备草稿，最终下单/支付由用户在手机上确认；确认有短时效且只适用于当前订单摘要；取消或超时立即拒绝；完成后提供可行的撤销/售后入口。敏感输入只由用户在手机本地填写，不返回到 MCP。
-
-若 `device_status` 返回空列表，先在手机打开果冻，确认测试会话已开启、无障碍服务已启用且会话通知仍在。部分厂商会限制后台运行，可使用 App 内“后台连接与省电设置”入口允许果冻持续运行。新安装可用 `journalctl -u jellyhere.service` 查看设备上下线时间；旧安装继续使用 `orbbuddy.service`。MCP 服务在线不代表手机一定在线。Android 的 Doze 可能暂停网络；即使使用前台服务也不能保证所有设备在长时间锁屏后立即可达，详见 [Android 官方说明](https://developer.android.com/training/monitoring-device-state/doze-standby)。
-
-在小米澎湃 OS 实测时，还需检查系统“应用信息”里的“自启动”“通知管理”和“省电策略”：允许自启动与通知，并将省电策略设为“无限制”。更新或重启后若会话没有自动恢复，重新打开果冻一次。若连接反复上下线，检查手机日志中的 `accessibility service destroyed`、`device socket failed` 和服务器日志；系统重新绑定无障碍服务时，旧连接应停止重试。
-
-## 参考资料
-
-- [Android AccessibilityService：手势、截图与无障碍节点](https://developer.android.com/reference/android/accessibilityservice/AccessibilityService)
-- [Android 无障碍悬浮层窗口类型](https://developer.android.com/reference/android/view/WindowManager.LayoutParams#TYPE_ACCESSIBILITY_OVERLAY)
-- [Android 前台服务后台启动限制](https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start)
-- [Android package visibility](https://developer.android.com/training/package-visibility)
-- [Model Context Protocol Go SDK](https://github.com/modelcontextprotocol/go-sdk)
-- [MCP Streamable HTTP 规范](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports)
-
-## 许可
-
-Apache-2.0，见 [LICENSE](LICENSE)。
+Apache-2.0 许可，见 [LICENSE](LICENSE)。
