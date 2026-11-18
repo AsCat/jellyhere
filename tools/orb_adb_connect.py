@@ -351,6 +351,11 @@ def connect_adb(endpoint: str) -> None:
 
 
 def config_file(name: str, env_name: str, legacy_env_name: str) -> Path:
+    profile = os.environ.get("JELLYHERE_PROFILE", "").strip()
+    if profile:
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", profile):
+            raise OrbError("invalid JellyHere profile name")
+        return CONFIG_DIR / "profiles" / profile / name
     configured = os.environ.get(env_name) or os.environ.get(legacy_env_name)
     if configured:
         return Path(configured).expanduser()
@@ -359,7 +364,9 @@ def config_file(name: str, env_name: str, legacy_env_name: str) -> Path:
 
 
 def load_token() -> str:
-    token = (os.environ.get("JELLYHERE_MCP_TOKEN") or os.environ.get("ORBBUDDY_MCP_TOKEN", "")).strip()
+    token = "" if os.environ.get("JELLYHERE_PROFILE") else (
+        os.environ.get("JELLYHERE_MCP_TOKEN") or os.environ.get("ORBBUDDY_MCP_TOKEN", "")
+    ).strip()
     if token:
         return token
     token_file = config_file("mcp-token", "JELLYHERE_MCP_TOKEN_FILE", "ORBBUDDY_MCP_TOKEN_FILE")
@@ -370,7 +377,9 @@ def load_token() -> str:
 
 
 def load_url() -> str:
-    url = (os.environ.get("JELLYHERE_MCP_URL") or os.environ.get("ORBBUDDY_MCP_URL", "")).strip()
+    url = "" if os.environ.get("JELLYHERE_PROFILE") else (
+        os.environ.get("JELLYHERE_MCP_URL") or os.environ.get("ORBBUDDY_MCP_URL", "")
+    ).strip()
     if not url:
         url_file = config_file("mcp-url", "JELLYHERE_MCP_URL_FILE", "ORBBUDDY_MCP_URL_FILE")
         try:
@@ -383,7 +392,9 @@ def load_url() -> str:
 
 
 def default_device() -> str | None:
-    env = (os.environ.get("JELLYHERE_DEFAULT_DEVICE") or os.environ.get("ORBBUDDY_DEFAULT_DEVICE", "")).strip()
+    env = "" if os.environ.get("JELLYHERE_PROFILE") else (
+        os.environ.get("JELLYHERE_DEFAULT_DEVICE") or os.environ.get("ORBBUDDY_DEFAULT_DEVICE", "")
+    ).strip()
     if env:
         return env
     try:

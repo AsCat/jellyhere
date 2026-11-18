@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 import shutil
 import subprocess
 import sys
@@ -46,6 +48,7 @@ def doctor() -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="jellyhere", description="JellyHere device companion CLI")
     parser.add_argument("--version", action="version", version=f"jellyhere {VERSION}")
+    parser.add_argument("--profile", help="use ~/.config/jellyhere/profiles/NAME for this command")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("doctor", help="check MCP configuration and device availability")
     device = commands.add_parser("device", help="inspect connected devices")
@@ -57,16 +60,28 @@ def main(argv: list[str] | None = None) -> int:
     connect.add_argument("--device", help="device ID; required if multiple phones are online")
     connect.add_argument("--no-adb", action="store_true", help="only enable and print the endpoint")
     args = parser.parse_args(argv)
-    if args.command == "doctor":
-        return doctor()
-    if args.command == "device":
-        return adb_main(["--list"], command_name="jellyhere device list")
-    connect_args = []
-    if args.device:
-        connect_args.extend(["--device", args.device])
-    if args.no_adb:
-        connect_args.append("--no-adb")
-    return adb_main(connect_args, command_name="jellyhere adb connect")
+    if args.profile is not None and not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", args.profile):
+        parser.error("profile name must contain only letters, numbers, _ or -")
+    old_profile = os.environ.get("JELLYHERE_PROFILE")
+    if args.profile is not None:
+        os.environ["JELLYHERE_PROFILE"] = args.profile
+    try:
+        if args.command == "doctor":
+            return doctor()
+        if args.command == "device":
+            return adb_main(["--list"], command_name="jellyhere device list")
+        connect_args = []
+        if args.device:
+            connect_args.extend(["--device", args.device])
+        if args.no_adb:
+            connect_args.append("--no-adb")
+        return adb_main(connect_args, command_name="jellyhere adb connect")
+    finally:
+        if args.profile is not None:
+            if old_profile is None:
+                os.environ.pop("JELLYHERE_PROFILE", None)
+            else:
+                os.environ["JELLYHERE_PROFILE"] = old_profile
 
 
 if __name__ == "__main__":

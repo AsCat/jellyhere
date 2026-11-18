@@ -28,6 +28,8 @@ jellyhere adb connect
 
 `~/.config/jellyhere/mcp-token` 需由用户在本机创建并写入 MCP 令牌，创建后执行 `chmod 600 ~/.config/jellyhere/mcp-token`；不要把它提交到仓库或贴到聊天里。也可设置 `JELLYHERE_MCP_URL`、`JELLYHERE_MCP_TOKEN` 和 `JELLYHERE_DEFAULT_DEVICE`；原 `~/.config/orbbuddy/` 与 `ORBBUDDY_*` 配置仍可读取。`jellyhere doctor` 只检查本机配置与在线设备，不修改手机。CLI 不负责跨网络转发 ADB：Android 官方无线调试流程要求电脑和手机处在可互通的 Wi-Fi 网络，具体连接仍受网络路由和防火墙限制。[Android ADB 指南](https://developer.android.com/tools/adb#connect-to-a-device-over-wi-fi)
 
+如果小米和三星接入不同 relay，可给每个 relay 建独立配置目录 `~/.config/jellyhere/profiles/<name>/`，分别放入 `mcp-url`、`mcp-token` 和可选的 `default-device` 文件。使用 `jellyhere --profile <name> doctor`、`jellyhere --profile <name> adb connect --device <id>` 指定实例；未带 `--profile` 的命令仍读取原有默认配置。令牌文件保持 `0600`，不要把令牌写入命令行参数。
+
 ## 读屏成本
 
 `get_screen` 默认把截图缩到最长边 1280 像素并以 JPEG 质量 70 编码；不发送原始分辨率图片。只需文字、控件 ID 或开关状态时，传 `includeImage=false`，手机不做截图；再传 `treeMode="compact"`，MCP 将完整树转换为平铺的 `elements`，只保留文字、描述和可操作控件。`path` 和 `revision` 仍可用于 `tap_element`，`bounds` 是原始像素 `[left,top,right,bottom]`。需要视觉判断时可传 `maxImageEdge=640` 或 `960`；原始手机坐标不受缩图影响。图像进入大模型后如何计费由所用模型与客户端决定，文件字节数和视觉 token 数不是同一个指标。精简树也可能包含屏幕上的敏感文字，调用方应避免把反复读取的结果都送入长期对话。电脑端 `jellyhere adb connect` 仍使用完整树，以保持其多层界面定位流程。

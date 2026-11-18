@@ -1,4 +1,5 @@
 import io
+import os
 import unittest
 from unittest.mock import patch
 
@@ -6,6 +7,17 @@ import jellyhere_cli
 
 
 class JellyHereCLITest(unittest.TestCase):
+    def test_profile_is_passed_to_helper_and_restored(self):
+        seen = []
+        def helper(*args, **kwargs):
+            seen.append(os.environ.get("JELLYHERE_PROFILE"))
+            return 0
+        with patch.dict(os.environ, {"JELLYHERE_PROFILE": "personal"}):
+            with patch.object(jellyhere_cli, "adb_main", side_effect=helper):
+                self.assertEqual(0, jellyhere_cli.main(["--profile", "jellyhub", "device", "list"]))
+            self.assertEqual("personal", os.environ.get("JELLYHERE_PROFILE"))
+        self.assertEqual(["jellyhub"], seen)
+
     def test_adb_command_uses_existing_helper_and_device_id(self):
         with patch.object(jellyhere_cli, "adb_main", return_value=0) as helper:
             self.assertEqual(0, jellyhere_cli.main(["adb", "connect", "--device", "samsung", "--no-adb"]))
