@@ -292,7 +292,8 @@ func (s *managedService) oauthAuthorizePage(w http.ResponseWriter, r *http.Reque
 	s.consents[tokenHash(nonce)] = pending
 	s.consentMu.Unlock()
 	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'")
+	callbackURL, _ := url.Parse(pending.RedirectURI) // Validated against the WorkBuddy callback allowlist.
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' "+callbackURL.Scheme+"://"+callbackURL.Host+"; base-uri 'none'; frame-ancestors 'none'")
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
