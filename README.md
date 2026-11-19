@@ -6,7 +6,7 @@
 
 JellyHere 让 Codex 等通用智能体按需理解手机屏幕、读取界面元素，并在用户允许时点击、滑动、输入和返回结果。Android 手机与电脑分别连接 Go 中转服务，**即使不在同一局域网，运行时也不需要无线 ADB**。项目从开发测试起步，目标是成为智能体连接个人设备的开放入口。
 
-[快速开始](docs/quickstart.md) · [自托管](docs/self-host.md) · [MCP 接入](docs/client-setup.md) · [WorkBuddy 连接器](docs/workbuddy-connector-plan.md) · [CLI 与无线调试](docs/shortcuts.md) · [路线图](docs/roadmap.md)
+[快速开始](docs/quickstart.md) · [真实场景](docs/use-cases/README.md) · [自托管](docs/self-host.md) · [MCP 接入](docs/client-setup.md) · [WorkBuddy 连接器](docs/workbuddy-connector-plan.md) · [CLI 与无线调试](docs/shortcuts.md) · [路线图](docs/roadmap.md)
 
 ## 看看果冻
 
@@ -24,7 +24,19 @@ JellyHere 让 Codex 等通用智能体按需理解手机屏幕、读取界面元
 
 继续做下去发现，更有价值的是那条始终可用的设备通道。手机主动通过 WSS 连接中转服务；智能体通过 MCP 查看屏幕和界面树、执行一次操作、再读回结果。无线调试成了其中一个开发快捷动作，而果冻逐渐长出了多设备管理、扫码绑定、独立授权，以及能在手机上随时暂停智能体的悬浮角色。它正在从开发者的小工具，走向可按需使用手机的开源智能体助手。
 
-**今天它服务于 Android 开发测试；未来希望让智能体在用户掌控下，安全地走向更多设备和真实任务。**
+**今天它以 Android 开发测试为起点，也已经开始探索真实任务；未来希望让智能体在用户掌控下，走向更多设备和场景。**
+
+## 真实场景 01：让智能体准备一单奶茶外卖
+
+> “帮我用小米手机点一个奶茶外卖，直到下单页面就行，不用提交下单。”
+
+在一次真实试用中，WorkBuddy 通过果冻连接小米手机，查看美团界面、选择商品与规格，最后停在显示“立即支付”的确认页。它向用户汇报了所选商品和金额，**没有提交订单，也没有付款**。这次操作用时约 4 分钟；它是单次实测，并不代表所有机型和页面都能稳定复现。
+
+| 智能体对话与结果 | 手机停留在付款前 |
+| --- | --- |
+| <img src="docs/use-cases/01-takeout/workbuddy-chat.png" alt="WorkBuddy 接收奶茶外卖任务并汇报停在确认页，订单尚未提交" width="580"> | <img src="docs/use-cases/01-takeout/checkout-phone.jpg" alt="小米手机的外卖确认页，底部立即支付按钮未点击" width="220"> |
+
+[阅读场景 01 的完整过程与边界](docs/use-cases/01-takeout/README.md) · [浏览真实场景索引](docs/use-cases/README.md)
 
 ## 现在能做什么
 
@@ -73,11 +85,11 @@ Go 服务不持久化屏幕内容；手机端可暂停后续读屏和操作。�
 | [`deploy/`](deploy/) | systemd、Nginx 部署模板 |
 | [`docs/`](docs/) | 快速开始、协议、平台规划与产品设计 |
 
-目前 Android 是实际可用的首个平台。iOS 和电脑端在[平台支持规划](docs/platform-support.md)中分别评估；它们的系统权限不同，不会简单照搬 Android 无障碍方案。WorkBuddy OAuth 连接器已实现并打包，平台审核与真实安装验收尚未完成；也可继续按通用 MCP 方式手动接入。[连接器说明](docs/workbuddy-connector-plan.md)
+目前 Android 是实际可用的首个平台。iOS 和电脑端在[平台支持规划](docs/platform-support.md)中分别评估；它们的系统权限不同，不会简单照搬 Android 无障碍方案。WorkBuddy OAuth 连接器已完成真实账户授权和单次控制场景试用，平台审核仍待完成；也可继续按通用 MCP 方式手动接入。[连接器说明](docs/workbuddy-connector-plan.md)
 
 ## 当前边界与参与开发
 
-果冻目前面向开发测试。**尚无外卖下单、支付等最终确认流程**；不要让智能体直接执行付款或最终提交订单。未来若加入这类任务，需由用户在手机端核对订单摘要并单独确认，且支持取消或超时拒绝。
+果冻目前面向开发测试。场景 01 展示的是**准备到付款前**，尚无外卖下单、支付等最终确认流程；不要让智能体直接执行付款或最终提交订单。未来若加入这类任务，需由用户在手机端核对订单摘要并单独确认，且支持取消或超时拒绝。
 
 如果果冻解决了你的一个重复操作，欢迎给项目一个 Star，也欢迎提交真实机型的兼容性报告和 PR。先看[贡献指南](CONTRIBUTING.md)、[行为准则](CODE_OF_CONDUCT.md)与[安全报告方式](SECURITY.md)。本地服务端测试运行 `cd server && go test ./...`；Android 构建方式见[快速开始](docs/quickstart.md)。
 
