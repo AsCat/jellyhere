@@ -99,9 +99,22 @@ func TestManagedWorkBuddyOAuthLifecycle(t *testing.T) {
 		t.Fatal("consent nonce missing")
 	}
 	form := url.Values{"consent": {nonceMatch[1]}, "decision": {"allow"}, "device_id": {"first"}, "scope": {oauthReadScope}}
+	// A foreign Origin is rejected without consuming the single-use nonce.
 	req, _ = http.NewRequest("POST", srv.URL+"/oauth/authorize", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Origin", publicURL)
+	req.Header.Set("Origin", "https://attacker.example")
+	req.AddCookie(session)
+	resp, err = noRedirect.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 403 {
+		t.Fatalf("foreign origin status=%d", resp.StatusCode)
+	}
+	// WorkBuddy's embedded browser can omit Origin on a form navigation.
+	req, _ = http.NewRequest("POST", srv.URL+"/oauth/authorize", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.AddCookie(session)
 	resp, err = noRedirect.Do(req)
 	if err != nil {
@@ -239,7 +252,7 @@ func TestManagedWorkBuddyOAuthLifecycle(t *testing.T) {
 	form = url.Values{"consent": {nonceMatch[1]}, "decision": {"allow"}, "device_id": {"first"}, "scope": {oauthControlScope}}
 	req, _ = http.NewRequest("POST", srv.URL+"/oauth/authorize", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Origin", publicURL)
+	req.Header.Set("Origin", "null")
 	req.AddCookie(session)
 	resp, err = noRedirect.Do(req)
 	if err != nil {

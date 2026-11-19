@@ -307,8 +307,16 @@ func oauthRedirect(w http.ResponseWriter, r *http.Request, redirect, state, code
 	http.Redirect(w, r, u.String(), http.StatusFound)
 }
 func (s *managedService) oauthAuthorizeSubmit(w http.ResponseWriter, r *http.Request) {
-	if !s.validMutationOrigin(r) || r.ContentLength > 8192 || r.ParseForm() != nil {
-		oauthError(w, 403, "invalid_request", "same-origin form required")
+	// The one-time consent nonce is bound to the login session and provides CSRF
+	// protection. Some embedded browsers omit Origin (or send "null") for a
+	// top-level form navigation, so do not require that header here.
+	if origin := r.Header.Get("Origin"); origin != "" && origin != "null" && origin != s.publicURL {
+		oauthError(w, 403, "invalid_request", "invalid form origin")
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 8192)
+	if r.ContentLength > 8192 || r.ParseForm() != nil {
+		oauthError(w, 400, "invalid_request", "invalid authorization form")
 		return
 	}
 	nonce := r.PostForm.Get("consent")
