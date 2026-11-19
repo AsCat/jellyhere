@@ -292,8 +292,11 @@ func (s *managedService) oauthAuthorizePage(w http.ResponseWriter, r *http.Reque
 	s.consents[tokenHash(nonce)] = pending
 	s.consentMu.Unlock()
 	w.Header().Set("Cache-Control", "no-store")
-	callbackURL, _ := url.Parse(pending.RedirectURI) // Validated against the WorkBuddy callback allowlist.
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' "+callbackURL.Scheme+"://"+callbackURL.Host+"; base-uri 'none'; frame-ancestors 'none'")
+	// Chromium applies form-action across the entire redirect chain. WorkBuddy's
+	// callback may redirect again to its console or desktop app, so do not set
+	// form-action on this page. The form target is fixed in the escaped template;
+	// the POST also requires a session-bound, one-time consent nonce.
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'")
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")

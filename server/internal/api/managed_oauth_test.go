@@ -90,8 +90,8 @@ func TestManagedWorkBuddyOAuthLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
-	if csp := resp.Header.Get("Content-Security-Policy"); !strings.Contains(csp, "form-action 'self' https://client.workbuddy.cn;") {
-		t.Fatalf("consent CSP blocks OAuth callback: %s", csp)
+	if csp := resp.Header.Get("Content-Security-Policy"); strings.Contains(csp, "form-action") || !strings.Contains(csp, "frame-ancestors 'none'") {
+		t.Fatalf("consent CSP blocks WorkBuddy callback redirects: %s", csp)
 	}
 	page, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != 200 || !strings.Contains(string(page), "first") || !strings.Contains(string(page), "second") {
