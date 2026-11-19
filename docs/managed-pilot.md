@@ -8,7 +8,7 @@
 2. 在“我的设备”点击“添加设备”，下载正式签名的 Android APK，安装并打开果冻。
 3. 网页点击“生成添加设备二维码”；手机 App 点击“扫码连接”，核对服务器和设备空间，再确认绑定。二维码 5 分钟有效、只能兑换一次；票据不包含可长期使用的设备令牌。手机自动保存设备连接配置并发起 WSS 连接。连接在其他服务器上的手机不会自动出现在当前空间；扫码切换后，原服务器将显示它离线。
 4. 首次使用需由用户在 Android 系统设置里手动启用果冻无障碍服务。可按需允许通知、后台运行。
-5. 回到网页，在设备卡片确认设备在线，再为自己的 Codex 或其他智能体创建单独的只读或测试控制 MCP 令牌。绑定手机本身不会授权任何智能体；已授权的客户端可以在管理页编辑设备范围，令牌保持有效。托管模式的手机悬浮菜单也可打开当前服务器的移动版控制台。
+5. 回到网页，在设备卡片确认设备在线。Codex 等通用智能体可创建单独的只读或测试控制 MCP 令牌；WorkBuddy 连接器则在登录后通过浏览器授权并显式选择设备与权限。绑定手机本身不会授权任何智能体。管理页可撤销 WorkBuddy 连接，静态 MCP 客户端也可编辑设备范围。托管模式的手机悬浮菜单可打开当前服务器的移动版控制台。
 
 扫码时请求相机权限。旧版 Android App 仍可手动填写服务器地址、设备 ID 和令牌。登录会话和未兑换的二维码票据目前保存在 Go 进程内；服务重启后需重新登录或重新生成二维码，已绑定设备凭据不会丢失。账户、设备及令牌哈希保存在单进程 JSON 状态文件中；扩大开放注册规模前应迁到数据库。
 
@@ -22,7 +22,7 @@ JELLYHERE_GITHUB_CLIENT_ID=<client id>
 JELLYHERE_GITHUB_CLIENT_SECRET=<client secret>
 ```
 
-重启 `jellyhere-managed.service` 后，`GET /auth/config` 的 `github_enabled` 应为 `true`，首页才显示 GitHub 登录按钮。不要把 secret 放入 Git、网页或 APK。公网 Nginx 应转发 `/auth/`、`/pair/` 和 `/tenant/`，并提供固定签名的 `/download/jellyhere.apk`；`/manage/tenants` 仍只在本机访问。OAuth state、会话 Cookie 和网页写操作的 Origin 均由服务端校验。
+重启 `jellyhere-managed.service` 后，`GET /auth/config` 的 `github_enabled` 应为 `true`，首页才显示 GitHub 登录按钮。不要把 secret 放入 Git、网页或 APK。公网 Nginx 应转发 `/auth/`、`/pair/`、`/tenant/`、`/.well-known/oauth-*` 和 `/oauth/`，并提供固定签名的 `/download/jellyhere.apk`；`/manage/tenants` 仍只在本机访问。OAuth state、会话 Cookie 和网页写操作的 Origin 均由服务端校验。
 
 ## 配置邮箱注册与登录
 

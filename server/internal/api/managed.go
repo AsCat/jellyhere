@@ -27,6 +27,9 @@ const (
 	maxTenantDevices    = 8
 	maxTenantClients    = 16
 	maxMCPPerMinute     = 60
+	maxOAuthClients     = 1000
+	maxOAuthCodes       = 1000
+	maxOAuthGrants      = 1000
 )
 
 //go:embed managed.html
@@ -59,6 +62,9 @@ type managedState struct {
 	Accounts      map[string]string              `json:"accounts,omitempty"` // GitHub numeric user ID -> tenant ID.
 	EmailAccounts map[string]managedEmailAccount `json:"email_accounts,omitempty"`
 	PendingEmails map[string]managedPendingEmail `json:"pending_emails,omitempty"` // Verification token hash -> pending account.
+	OAuthClients  map[string]managedOAuthClient  `json:"oauth_clients,omitempty"`
+	OAuthCodes    map[string]managedOAuthCode    `json:"oauth_codes,omitempty"` // Authorization code hash -> one-time code.
+	OAuthGrants   map[string]managedOAuthGrant   `json:"oauth_grants,omitempty"`
 }
 
 type managedEmailAccount struct {
@@ -100,7 +106,7 @@ type managedService struct {
 	githubAPIURL       string
 	httpClient         *http.Client
 	authMu             sync.Mutex
-	oauthStates        map[string]time.Time
+	oauthStates        map[string]managedLoginState
 	sessions           map[string]managedSession
 	loginAttempts      map[string]managedLoginAttempt
 	passwordSlots      chan struct{}
@@ -111,6 +117,8 @@ type managedService struct {
 	smtpFrom           string
 	pairMu             sync.Mutex
 	pairings           map[string]managedPairing
+	consentMu          sync.Mutex
+	consents           map[string]managedOAuthConsent
 }
 
 type managedUsage struct {
@@ -181,12 +189,12 @@ func NewManagedHandler(cfg ManagedConfig) (http.Handler, error) {
 		op: cfg.OperatorToken, usage: make(map[string]managedUsage), publicURL: publicURL,
 		githubClientID: cfg.GitHubClientID, githubClientSecret: cfg.GitHubClientSecret,
 		githubOAuthURL: cfg.GitHubOAuthURL, githubAPIURL: cfg.GitHubAPIURL, httpClient: client,
-		oauthStates: make(map[string]time.Time), sessions: make(map[string]managedSession),
+		oauthStates: make(map[string]managedLoginState), sessions: make(map[string]managedSession),
 		loginAttempts: make(map[string]managedLoginAttempt),
 		passwordSlots: make(chan struct{}, 2),
 		smtpHost:      cfg.SMTPHost, smtpPort: cfg.SMTPPort, smtpUser: cfg.SMTPUser,
 		smtpPassword: cfg.SMTPPassword, smtpFrom: cfg.SMTPFrom,
-		pairings: make(map[string]managedPairing)}
+		pairings: make(map[string]managedPairing), consents: make(map[string]managedOAuthConsent)}
 	if s.githubOAuthURL == "" {
 		s.githubOAuthURL = "https://github.com"
 	}
@@ -305,6 +313,9 @@ func validateManagedState(state managedState) error {
 			return errors.New("invalid email verification hash")
 		}
 	}
+	if err := validateManagedOAuthState(state); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -404,6 +415,29 @@ func (s *managedService) client(r *http.Request) (managedPrincipal, bool) {
 			return managedPrincipal{hub: s.hubs[id], client: client}, true
 		}
 	}
+	for _, grant := range s.state.OAuthGrants {
+		if grant.AccessHash != hash || time.Now().Unix() >= grant.AccessExpires {
+			continue
+		}
+		tenant, exists := s.state.Tenants[grant.TenantID]
+		if !exists {
+			continue
+		}
+		allowed := make([]string, 0, len(grant.DeviceIDs))
+		for _, deviceID := range grant.DeviceIDs {
+			if _, exists := tenant.Devices[deviceID]; exists {
+				allowed = append(allowed, deviceID)
+			}
+		}
+		if len(allowed) == 0 {
+			continue
+		}
+		scope := "viewer"
+		if grant.Scope == "device.read device.control" {
+			scope = "controller"
+		}
+		return managedPrincipal{hub: s.hubs[grant.TenantID], client: managedClient{Scope: scope, DeviceIDs: allowed}}, true
+	}
 	return managedPrincipal{}, false
 }
 
@@ -444,12 +478,21 @@ func (s *managedService) handler() http.Handler {
 	mux.HandleFunc("POST /pair/redeem", s.redeemPairing)
 	mux.HandleFunc("POST /manage/tenants", s.createTenant)
 	mux.HandleFunc("POST /manage/email-accounts", s.createOperatorEmailAccount)
+	mux.HandleFunc("GET /.well-known/oauth-protected-resource", s.oauthResourceMetadata)
+	mux.HandleFunc("GET /.well-known/oauth-protected-resource/mcp", s.oauthResourceMetadata)
+	mux.HandleFunc("GET /.well-known/oauth-authorization-server", s.oauthServerMetadata)
+	mux.HandleFunc("POST /oauth/register", s.oauthRegister)
+	mux.HandleFunc("GET /oauth/authorize", s.oauthAuthorizePage)
+	mux.HandleFunc("POST /oauth/authorize", s.oauthAuthorizeSubmit)
+	mux.HandleFunc("POST /oauth/token", s.oauthToken)
+	mux.HandleFunc("POST /oauth/revoke", s.oauthRevoke)
 	mux.HandleFunc("GET /tenant", s.tenantInfo)
 	mux.HandleFunc("POST /tenant/devices", s.createDevice)
 	mux.HandleFunc("DELETE /tenant/devices/{id}", s.deleteDevice)
 	mux.HandleFunc("POST /tenant/clients", s.createClient)
 	mux.HandleFunc("PATCH /tenant/clients/{id}", s.updateClient)
 	mux.HandleFunc("DELETE /tenant/clients/{id}", s.deleteClient)
+	mux.HandleFunc("DELETE /tenant/oauth-grants/{id}", s.deleteOAuthGrant)
 	mux.HandleFunc("POST /tenant/owner-token/rotate", s.rotateOwner)
 	mux.HandleFunc("GET /device", s.connectDevice)
 	mux.HandleFunc("/mcp", s.serveMCP)
@@ -500,6 +543,14 @@ func (s *managedService) tenantInfo(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	tenant := s.state.Tenants[id]
 	hub := s.hubs[id]
+	oauthGrants := make(map[string]managedOAuthGrant)
+	oauthClients := make(map[string]managedOAuthClient)
+	for grantID, grant := range s.state.OAuthGrants {
+		if grant.TenantID == id && time.Now().Unix() < grant.RefreshExpires {
+			oauthGrants[grantID] = grant
+			oauthClients[grant.ClientID] = s.state.OAuthClients[grant.ClientID]
+		}
+	}
 	s.mu.RUnlock()
 	devices := make([]bridge.DeviceStatus, 0, len(tenant.Devices))
 	for deviceID := range tenant.Devices {
@@ -525,7 +576,19 @@ func (s *managedService) tenantInfo(w http.ResponseWriter, r *http.Request) {
 		clients = append(clients, clientView{clientID, name, client.Scope, client.DeviceIDs})
 	}
 	sort.Slice(clients, func(i, j int) bool { return clients[i].ID < clients[j].ID })
-	jsonResponse(w, 200, map[string]any{"tenant_id": id, "devices": devices, "clients": clients})
+	type oauthView struct {
+		ID        string   `json:"id"`
+		Name      string   `json:"name"`
+		Scope     string   `json:"scope"`
+		DeviceIDs []string `json:"device_ids"`
+		ExpiresAt int64    `json:"expires_at"`
+	}
+	connections := make([]oauthView, 0, len(oauthGrants))
+	for grantID, grant := range oauthGrants {
+		connections = append(connections, oauthView{grantID, oauthClients[grant.ClientID].Name, grant.Scope, grant.DeviceIDs, grant.RefreshExpires})
+	}
+	sort.Slice(connections, func(i, j int) bool { return connections[i].ID < connections[j].ID })
+	jsonResponse(w, 200, map[string]any{"tenant_id": id, "devices": devices, "clients": clients, "oauth_connections": connections})
 }
 
 func (s *managedService) createDevice(w http.ResponseWriter, r *http.Request) {
@@ -592,6 +655,28 @@ func (s *managedService) deleteDevice(w http.ResponseWriter, r *http.Request) {
 				if allowedID == id {
 					delete(tenant.Clients, clientID)
 					revoked++
+					break
+				}
+			}
+		}
+		for grantID, grant := range state.OAuthGrants {
+			if grant.TenantID != tenantID {
+				continue
+			}
+			for _, allowedID := range grant.DeviceIDs {
+				if allowedID == id {
+					delete(state.OAuthGrants, grantID)
+					break
+				}
+			}
+		}
+		for codeHash, code := range state.OAuthCodes {
+			if code.TenantID != tenantID {
+				continue
+			}
+			for _, allowedID := range code.DeviceIDs {
+				if allowedID == id {
+					delete(state.OAuthCodes, codeHash)
 					break
 				}
 			}
@@ -807,6 +892,9 @@ func (s *managedService) connectDevice(w http.ResponseWriter, r *http.Request) {
 func (s *managedService) serveMCP(w http.ResponseWriter, r *http.Request) {
 	principal, ok := s.client(r)
 	if !ok {
+		if s.publicURL != "" {
+			w.Header().Set("WWW-Authenticate", `Bearer resource_metadata="`+s.publicURL+`/.well-known/oauth-protected-resource"`)
+		}
 		apiError(w, 401, "unauthorized", "client token required")
 		return
 	}

@@ -11,6 +11,10 @@
   let pairingKnownDevices = null;
   let setupTouched = false;
   let refreshing = false;
+  const oauthReturn = new URLSearchParams(location.search).get("oauth_return") || "";
+  function resumeOAuth() {
+    if (oauthReturn.startsWith("/oauth/authorize?") && oauthReturn.length < 2048) location.assign(oauthReturn);
+  }
 
   function notice(message) { byId("notice").textContent = message || ""; }
   function element(tag, className, value) {
@@ -134,6 +138,23 @@
     card.append(summary, actions);
     return card;
   }
+  function renderOAuthConnection(connection) {
+    const card = element("div", "agent-card");
+    const summary = element("div");
+    summary.append(element("strong", "", connection.name || "WorkBuddy"));
+    summary.append(element("span", "", (connection.scope === "device.read" ? "只读" : "开发测试控制") + " · " + connection.device_ids.length + " 台设备 · 到期 " + new Date(connection.expires_at * 1000).toLocaleDateString("zh-CN")));
+    const actions = element("div", "agent-actions");
+    const revoke = element("button", "ghost danger", "撤销");
+    revoke.type = "button";
+    revoke.addEventListener("click", async () => {
+      if (!confirm("撤销此 WorkBuddy 连接？")) return;
+      try { await request("/tenant/oauth-grants/" + encodeURIComponent(connection.id), "DELETE"); await refresh(); notice("连接已撤销"); }
+      catch (error) { notice(error.message); }
+    });
+    actions.append(revoke);
+    card.append(summary, actions);
+    return card;
+  }
   function renderChoices(devices) {
     const choices = byId("device-choices");
     const previousChecks = [...choices.querySelectorAll("input")];
@@ -161,6 +182,7 @@
       const devices = data.devices || [];
       currentDevices = devices;
       const clients = data.clients || [];
+      const connections = data.oauth_connections || [];
       byId("login").hidden = true;
       byId("dashboard").hidden = false;
       byId("tenant-title").textContent = "空间 ID：" + data.tenant_id;
@@ -168,12 +190,12 @@
       byId("mcp-url").textContent = location.origin + "/mcp";
       byId("device-count").textContent = String(devices.length);
       byId("online-count").textContent = String(devices.filter((device) => device.online).length);
-      byId("client-count").textContent = String(clients.length);
+      byId("client-count").textContent = String(clients.length + connections.length);
       byId("device-heading-count").textContent = "（" + devices.length + "）";
       byId("devices").replaceChildren(...devices.map(renderDevice));
       byId("empty-devices").hidden = devices.length > 0;
-      byId("clients").replaceChildren(...clients.map(renderClient));
-      if (!clients.length) byId("clients").append(element("p", "form-note", "尚未授权智能体。添加设备后，在右侧创建专属 MCP 令牌。"));
+      byId("clients").replaceChildren(...connections.map(renderOAuthConnection), ...clients.map(renderClient));
+      if (!clients.length && !connections.length) byId("clients").append(element("p", "form-note", "尚未授权智能体。添加设备后，可以连接 WorkBuddy 或创建专属 MCP 令牌。"));
       renderChoices(devices);
       if (!setupTouched && !devices.length) {
         byId("add-device").hidden = false;
@@ -219,6 +241,7 @@
       byId("login-password").value = "";
       accountSession = true;
       await refresh();
+      if (oauthReturn) { resumeOAuth(); return; }
       notice("");
     } catch (error) { notice(error.message); }
   });
@@ -314,6 +337,7 @@
   try { saved = sessionStorage.getItem(key) || ""; } catch (_) { /* Storage may be disabled. */ }
   fetch("/auth/config", { cache: "no-store" }).then((r) => r.json()).then((data) => {
     byId("github-login").hidden = !data.github_enabled;
+    if (oauthReturn) byId("github-login").href = "/auth/github?oauth_return=" + encodeURIComponent(oauthReturn);
     byId("github-unavailable").hidden = !!data.github_enabled;
     emailRegistrationEnabled = !!data.email_registration_enabled;
     byId("email-register-wrap").hidden = !emailRegistrationEnabled;
@@ -327,7 +351,7 @@
     }).then(() => notice("邮箱验证完成，已进入设备空间")).catch((error) => notice(error.message));
   }
   fetch("/auth/session", { cache: "no-store" }).then((r) => {
-    if (r.ok) { accountSession = true; return refresh(); }
+    if (r.ok) { accountSession = true; if (oauthReturn) { resumeOAuth(); return; } return refresh(); }
     if (!verification && (invite || saved)) return login(invite || saved);
   }).catch((error) => { ownerToken = ""; notice(error.message); });
 })();

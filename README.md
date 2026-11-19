@@ -6,7 +6,7 @@
 
 JellyHere 让 Codex 等通用智能体按需理解手机屏幕、读取界面元素，并在用户允许时点击、滑动、输入和返回结果。Android 手机与电脑分别连接 Go 中转服务，**即使不在同一局域网，运行时也不需要无线 ADB**。项目从开发测试起步，目标是成为智能体连接个人设备的开放入口。
 
-[快速开始](docs/quickstart.md) · [自托管](docs/self-host.md) · [MCP 接入](docs/client-setup.md) · [CLI 与无线调试](docs/shortcuts.md) · [路线图](docs/roadmap.md)
+[快速开始](docs/quickstart.md) · [自托管](docs/self-host.md) · [MCP 接入](docs/client-setup.md) · [WorkBuddy 连接器](docs/workbuddy-connector-plan.md) · [CLI 与无线调试](docs/shortcuts.md) · [路线图](docs/roadmap.md)
 
 ## 看看果冻
 
@@ -43,7 +43,7 @@ JellyHere 让 Codex 等通用智能体按需理解手机屏幕、读取界面元
 
 1. **选择入口。** 可以[自行部署轻量 Go relay](docs/self-host.md)，也可以使用你信任的 JellyHub 托管实例。自托管适合个人设备；JellyHub 托管试验按账户隔离设备，支持扫码加入。[托管模式说明](docs/managed-pilot.md)
 2. **连接 Android。** 安装果冻 App，开启无障碍服务并连接 relay。托管模式用二维码绑定；自托管模式手动填写服务器地址与设备令牌。[Android 安装步骤](docs/quickstart.md)
-3. **授权智能体。** 为 Codex 或其他支持 Streamable HTTP MCP 的客户端单独生成令牌，先调用 `device_status`，再明确指定目标 `deviceId` 读屏和操作。[MCP 配置](docs/client-setup.md)
+3. **授权智能体。** 为 Codex 等支持 Streamable HTTP MCP 的客户端单独生成令牌；WorkBuddy 可用连接器在浏览器里选择设备与只读或控制权限。先调用 `device_status`，再明确指定目标 `deviceId` 读屏和操作。[MCP 配置](docs/client-setup.md) · [WorkBuddy 连接器](docs/workbuddy-connector-plan.md)
 
 例如，只需要识别当前界面时，可调用：
 
@@ -73,7 +73,7 @@ Go 服务不持久化屏幕内容；手机端可暂停后续读屏和操作。�
 | [`deploy/`](deploy/) | systemd、Nginx 部署模板 |
 | [`docs/`](docs/) | 快速开始、协议、平台规划与产品设计 |
 
-目前 Android 是实际可用的首个平台。iOS 和电脑端在[平台支持规划](docs/platform-support.md)中分别评估；它们的系统权限不同，不会简单照搬 Android 无障碍方案。WorkBuddy 可先按通用 MCP 方式手动接入，正式 OAuth 连接器仍在[规划中](docs/workbuddy-connector-plan.md)。
+目前 Android 是实际可用的首个平台。iOS 和电脑端在[平台支持规划](docs/platform-support.md)中分别评估；它们的系统权限不同，不会简单照搬 Android 无障碍方案。WorkBuddy OAuth 连接器已实现并打包，平台审核与真实安装验收尚未完成；也可继续按通用 MCP 方式手动接入。[连接器说明](docs/workbuddy-connector-plan.md)
 
 ## 当前边界与参与开发
 

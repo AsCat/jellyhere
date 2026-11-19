@@ -18,6 +18,22 @@ type managedSession struct {
 	expires    time.Time
 }
 
+type managedLoginState struct {
+	expires    time.Time
+	returnPath string
+}
+
+func oauthReturnPath(value string) string {
+	if len(value) > 2048 || !strings.HasPrefix(value, "/oauth/authorize?") {
+		return ""
+	}
+	u, err := url.ParseRequestURI(value)
+	if err != nil || u.Path != "/oauth/authorize" || u.Host != "" {
+		return ""
+	}
+	return value
+}
+
 const managedSessionCookie = "jellyhere_session"
 const managedStateCookie = "jellyhere_oauth_state"
 
@@ -81,8 +97,8 @@ func (s *managedService) githubLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.authMu.Lock()
-	for key, expires := range s.oauthStates {
-		if time.Now().After(expires) {
+	for key, login := range s.oauthStates {
+		if time.Now().After(login.expires) {
 			delete(s.oauthStates, key)
 		}
 	}
@@ -91,7 +107,7 @@ func (s *managedService) githubLogin(w http.ResponseWriter, r *http.Request) {
 		apiError(w, 429, "login_busy", "Too many pending logins; try again later")
 		return
 	}
-	s.oauthStates[tokenHash(state)] = time.Now().Add(5 * time.Minute)
+	s.oauthStates[tokenHash(state)] = managedLoginState{time.Now().Add(5 * time.Minute), oauthReturnPath(r.URL.Query().Get("oauth_return"))}
 	s.authMu.Unlock()
 	http.SetCookie(w, &http.Cookie{Name: managedStateCookie, Value: state, Path: "/auth/github", Secure: true,
 		HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 300})
@@ -107,11 +123,11 @@ func (s *managedService) githubCallback(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	s.authMu.Lock()
-	expires, ok := s.oauthStates[tokenHash(state)]
+	login, ok := s.oauthStates[tokenHash(state)]
 	delete(s.oauthStates, tokenHash(state))
 	s.authMu.Unlock()
 	http.SetCookie(w, &http.Cookie{Name: managedStateCookie, Path: "/auth/github", Secure: true, HttpOnly: true, MaxAge: -1})
-	if !ok || time.Now().After(expires) {
+	if !ok || time.Now().After(login.expires) {
 		apiError(w, 400, "invalid_oauth_state", "GitHub login expired; try again")
 		return
 	}
@@ -194,7 +210,11 @@ func (s *managedService) githubCallback(w http.ResponseWriter, r *http.Request) 
 		managedError(w, err)
 		return
 	}
-	http.Redirect(w, r, s.publicURL+"/", http.StatusFound)
+	redirect := s.publicURL + "/"
+	if login.returnPath != "" {
+		redirect += strings.TrimPrefix(login.returnPath, "/")
+	}
+	http.Redirect(w, r, redirect, http.StatusFound)
 }
 
 func (s *managedService) startSession(w http.ResponseWriter, tenantID, accountKey string) error {

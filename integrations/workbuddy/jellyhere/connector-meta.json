@@ -1,0 +1,34 @@
+{
+  "name": "果冻",
+  "name_zh": "果冻",
+  "name_en": "JellyHere",
+  "description": "连接自己的 Android 手机，让智能体查看界面，并在你授权后完成开发测试操作。",
+  "description_zh": "连接自己的 Android 手机，按需查看设备界面，并在单独授权后执行开发测试操作。",
+  "description_en": "Connect your Android phone so an assistant can inspect its screen and perform development testing actions after explicit authorization.",
+  "source": "jellyhere",
+  "type": "mcp",
+  "version": "0.1.0",
+  "minWorkbuddyVersion": "4.24.0",
+  "auth_mode": "server-side",
+  "server_auth": {
+    "auth_type": "mcp_oauth",
+    "data": {
+      "mcp_oauth": {
+        "server_url": "https://jellyhub.yuanxuyinli.com/mcp",
+        "scopes": "device.read device.control"
+      }
+    }
+  },
+  "examples_zh": [
+    "我的 Android 手机现在在线吗？",
+    "查看三星手机当前界面上有什么内容",
+    "读取小米手机当前 App 的界面元素",
+    "帮我打开三星手机的无线调试设置"
+  ],
+  "examples_en": [
+    "Is my Android phone online?",
+    "What is currently on my Samsung phone screen?",
+    "Read the visible UI elements on my Xiaomi phone",
+    "Open wireless debugging settings on my Samsung phone"
+  ]
+}

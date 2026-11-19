@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "jellyhere": {
+      "type": "streamableHttp",
+      "url": "https://jellyhub.yuanxuyinli.com/mcp",
+      "timeout": 30000
+    }
+  }
+}

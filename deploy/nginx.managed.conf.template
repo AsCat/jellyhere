@@ -44,6 +44,20 @@ server {
         add_header Cache-Control "no-store" always;
     }
 
+    location ^~ /.well-known/oauth- {
+        proxy_pass http://127.0.0.1:18094;
+        proxy_set_header Host $host;
+        add_header Cache-Control "no-store" always;
+    }
+
+    location ^~ /oauth/ {
+        proxy_pass http://127.0.0.1:18094;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Real-IP $remote_addr;
+        add_header Cache-Control "no-store" always;
+    }
+
     location ^~ /pair/ {
         proxy_pass http://127.0.0.1:18094;
         proxy_set_header Host $host;
