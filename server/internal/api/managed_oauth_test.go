@@ -94,6 +94,11 @@ func TestManagedWorkBuddyOAuthLifecycle(t *testing.T) {
 	if resp.StatusCode != 200 || !strings.Contains(string(page), "first") || !strings.Contains(string(page), "second") {
 		t.Fatalf("consent page status=%d", resp.StatusCode)
 	}
+	for _, id := range []string{"first", "second"} {
+		if !strings.Contains(string(page), `name="device_id" value="`+id+`" checked`) {
+			t.Fatalf("device %s was not selected by default", id)
+		}
+	}
 	nonceMatch := regexp.MustCompile(`name="consent" value="([a-f0-9]{64})"`).FindStringSubmatch(string(page))
 	if len(nonceMatch) != 2 {
 		t.Fatal("consent nonce missing")
