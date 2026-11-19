@@ -85,7 +85,7 @@ func NewHandler(hub *bridge.Hub, cfg Config) http.Handler {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		mcpHandler.ServeHTTP(w, r)
+		serveMCPWithLog(w, r, "selfhost", mcpHandler)
 	}))
 	newHTTPAPI(hub).register(mux)
 	return mux

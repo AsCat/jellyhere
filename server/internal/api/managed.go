@@ -915,5 +915,5 @@ func (s *managedService) serveMCP(w http.ResponseWriter, r *http.Request) {
 	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
 		return newScopedMCPServer(principal.hub, principal.client.DeviceIDs, principal.client.Scope == "viewer")
 	}, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true})
-	handler.ServeHTTP(w, r)
+	serveMCPWithLog(w, r, hash[:12], handler)
 }
