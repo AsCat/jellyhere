@@ -121,10 +121,23 @@ func TestManagedWorkBuddyOAuthLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	resp.Body.Close()
-	if resp.StatusCode != 302 {
+	if resp.StatusCode != 303 {
 		t.Fatalf("consent status=%d", resp.StatusCode)
 	}
-	redirect, err := url.Parse(resp.Header.Get("Location"))
+	firstLocation := resp.Header.Get("Location")
+	// A repeated click must return the same authorization result, not an expiry error.
+	req, _ = http.NewRequest("POST", srv.URL+"/oauth/authorize", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(session)
+	resp, err = noRedirect.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 303 || resp.Header.Get("Location") != firstLocation {
+		t.Fatalf("duplicate consent status=%d location=%s", resp.StatusCode, resp.Header.Get("Location"))
+	}
+	redirect, err := url.Parse(firstLocation)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,7 +272,7 @@ func TestManagedWorkBuddyOAuthLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	resp.Body.Close()
-	if resp.StatusCode != 302 {
+	if resp.StatusCode != 303 {
 		t.Fatalf("control consent status=%d", resp.StatusCode)
 	}
 	redirect, _ = url.Parse(resp.Header.Get("Location"))

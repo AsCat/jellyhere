@@ -48,14 +48,16 @@ type managedOAuthGrant struct {
 	RefreshExpires int64    `json:"refresh_expires"`
 }
 type managedOAuthConsent struct {
-	SessionHash string
-	ClientID    string
-	TenantID    string
-	RedirectURI string
-	Challenge   string
-	Scope       string
-	State       string
-	Expires     time.Time
+	SessionHash    string
+	ClientID       string
+	TenantID       string
+	RedirectURI    string
+	Challenge      string
+	Scope          string
+	State          string
+	Expires        time.Time
+	CompletedCode  string
+	CompletedError string
 }
 
 func oauthScopeValid(scope string) bool { return scope == oauthReadScope || scope == oauthControlScope }
@@ -304,7 +306,7 @@ func oauthRedirect(w http.ResponseWriter, r *http.Request, redirect, state, code
 		q.Set("state", state)
 	}
 	u.RawQuery = q.Encode()
-	http.Redirect(w, r, u.String(), http.StatusFound)
+	http.Redirect(w, r, u.String(), http.StatusSeeOther)
 }
 func (s *managedService) oauthAuthorizeSubmit(w http.ResponseWriter, r *http.Request) {
 	// The one-time consent nonce is bound to the login session and provides CSRF
@@ -324,25 +326,41 @@ func (s *managedService) oauthAuthorizeSubmit(w http.ResponseWriter, r *http.Req
 		oauthError(w, 400, "invalid_request", "authorization expired")
 		return
 	}
-	s.consentMu.Lock()
-	pending, ok := s.consents[tokenHash(nonce)]
-	delete(s.consents, tokenHash(nonce))
-	s.consentMu.Unlock()
 	cookie, err := r.Cookie(managedSessionCookie)
-	if err != nil || !ok || time.Now().After(pending.Expires) || tokenHash(cookie.Value) != pending.SessionHash {
+	if err != nil {
 		oauthError(w, 400, "invalid_request", "authorization expired")
 		return
 	}
 	tenantID, ok := s.sessionOwner(r)
-	if !ok || tenantID != pending.TenantID {
+	if !ok {
 		oauthError(w, 401, "login_required", "login required")
 		return
 	}
+	s.consentMu.Lock()
+	pending, ok := s.consents[tokenHash(nonce)]
+	if !ok || time.Now().After(pending.Expires) || tokenHash(cookie.Value) != pending.SessionHash || tenantID != pending.TenantID {
+		s.consentMu.Unlock()
+		oauthError(w, 400, "invalid_request", "authorization expired")
+		return
+	}
+	if pending.CompletedCode != "" || pending.CompletedError != "" {
+		s.consentMu.Unlock()
+		if pending.CompletedError != "" {
+			oauthRedirect(w, r, pending.RedirectURI, pending.State, "error", pending.CompletedError)
+		} else {
+			oauthRedirect(w, r, pending.RedirectURI, pending.State, "code", pending.CompletedCode)
+		}
+		return
+	}
 	if r.PostForm.Get("decision") == "deny" {
+		pending.CompletedError = "access_denied"
+		s.consents[tokenHash(nonce)] = pending
+		s.consentMu.Unlock()
 		oauthRedirect(w, r, pending.RedirectURI, pending.State, "error", "access_denied")
 		return
 	}
 	if r.PostForm.Get("decision") != "allow" {
+		s.consentMu.Unlock()
 		oauthError(w, 400, "invalid_request", "invalid decision")
 		return
 	}
@@ -350,6 +368,7 @@ func (s *managedService) oauthAuthorizeSubmit(w http.ResponseWriter, r *http.Req
 	if pending.Scope == oauthControlScope {
 		selected := r.PostForm.Get("scope")
 		if selected != oauthReadScope && selected != oauthControlScope {
+			s.consentMu.Unlock()
 			oauthError(w, 400, "invalid_scope", "select a valid permission")
 			return
 		}
@@ -358,6 +377,7 @@ func (s *managedService) oauthAuthorizeSubmit(w http.ResponseWriter, r *http.Req
 	ids := r.PostForm["device_id"]
 	code, _, err := randomToken()
 	if err != nil {
+		s.consentMu.Unlock()
 		managedError(w, err)
 		return
 	}
@@ -381,9 +401,13 @@ func (s *managedService) oauthAuthorizeSubmit(w http.ResponseWriter, r *http.Req
 		return nil
 	})
 	if err != nil {
+		s.consentMu.Unlock()
 		managedError(w, err)
 		return
 	}
+	pending.CompletedCode = code
+	s.consents[tokenHash(nonce)] = pending
+	s.consentMu.Unlock()
 	oauthRedirect(w, r, pending.RedirectURI, pending.State, "code", code)
 }
 func (s *managedService) oauthToken(w http.ResponseWriter, r *http.Request) {
