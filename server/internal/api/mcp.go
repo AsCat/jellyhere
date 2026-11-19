@@ -63,6 +63,11 @@ type appInfoInput struct {
 	PackageName string `json:"packageName"`
 }
 
+type launchAppInput struct {
+	DeviceID    string `json:"deviceId,omitempty"`
+	PackageName string `json:"packageName" jsonschema:"Exact Android package name of an installed launchable app"`
+}
+
 type deviceBridge interface {
 	Status() []bridge.DeviceStatus
 	Call(context.Context, string, string, any) (json.RawMessage, error)
@@ -140,7 +145,7 @@ func newScopedMCPServer(hub *bridge.Hub, deviceIDs []string, readOnly bool) *mcp
 }
 
 func newMCPServer(hub deviceBridge, readOnly bool) *mcp.Server {
-	s := mcp.NewServer(&mcp.Implementation{Name: "jellyhere", Version: "0.5.0-dev"}, &mcp.ServerOptions{
+	s := mcp.NewServer(&mcp.Implementation{Name: "jellyhere", Version: "0.5.5"}, &mcp.ServerOptions{
 		Instructions: "JellyHere is for Android development testing. Read the screen before element taps and read it again after the UI changes. Ask the user before entering sensitive data or taking a final order, purchase, or payment action; never treat an ordinary tap approval as payment authorization.",
 	})
 	mcp.AddTool(s, &mcp.Tool{Name: "device_status", Description: "List connected Android devices.", Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true}},
@@ -222,6 +227,10 @@ func newMCPServer(hub deviceBridge, readOnly bool) *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{Name: "press_key", Description: "Press Android back or home."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in keyInput) (*mcp.CallToolResult, any, error) {
 			return callDevice(ctx, hub, in.DeviceID, "press_key", map[string]any{"key": in.Key})
+		})
+	mcp.AddTool(s, &mcp.Tool{Name: "launch_app", Description: "Open an installed app by its exact Android package name. Use when the current screen is in another app; do not relaunch the app already in the foreground. This only opens the app and does not perform actions inside it."},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in launchAppInput) (*mcp.CallToolResult, any, error) {
+			return callDevice(ctx, hub, in.DeviceID, "launch_app", map[string]any{"packageName": in.PackageName})
 		})
 	mcp.AddTool(s, &mcp.Tool{Name: "open_wireless_debugging_settings", Description: "Open Android's Wireless debugging settings page. The caller must read the screen before changing the switch."},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in deviceInput) (*mcp.CallToolResult, any, error) {

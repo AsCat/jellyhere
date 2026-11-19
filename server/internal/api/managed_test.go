@@ -167,7 +167,7 @@ func TestManagedTenantIsolationAndRevocation(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, tool := range viewerTools.Tools {
-		if tool.Name == "tap" {
+		if tool.Name == "tap" || tool.Name == "launch_app" {
 			t.Fatal("viewer discovered a control tool")
 		}
 	}
@@ -185,6 +185,11 @@ func TestManagedTenantIsolationAndRevocation(t *testing.T) {
 		Arguments: map[string]any{"deviceId": "primary", "x": 1, "y": 2}})
 	if err != nil || result.IsError || <-bobMethods != "tap" {
 		t.Fatalf("controller tap failed: result=%+v err=%v", result, err)
+	}
+	result, err = bobSession.CallTool(ctx, &mcp.CallToolParams{Name: "launch_app",
+		Arguments: map[string]any{"deviceId": "primary", "packageName": "com.example.app"}})
+	if err != nil || result.IsError || <-bobMethods != "launch_app" {
+		t.Fatalf("controller launch app failed: result=%+v err=%v", result, err)
 	}
 	status, _ = managedRequest(t, srv, "DELETE", "/tenant/clients/reader", aliceOwner, nil)
 	if status != 200 {

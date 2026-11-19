@@ -10,11 +10,9 @@ JellyHere 让 Codex 等通用智能体按需理解手机屏幕、读取界面元
 
 ## 看看果冻
 
-<p align="center"><img src="docs/images/jellyhub-dashboard.png" alt="JellyHub 设备空间：两台在线演示设备和独立智能体授权" width="960"></p>
-<p align="center"><sub>JellyHub 控制台 · 演示数据，展示多设备状态与智能体授权</sub></p>
-
-<p align="center"><img src="docs/images/jellyhere-android.jpg" alt="三星真机上的果冻 Android App 首页，包含连接状态、无线调试入口和星星悬浮角色" width="300"></p>
-<p align="center"><sub>Android App · 三星真机截图，未展示授权令牌</sub></p>
+| JellyHub 控制台 | 果冻 Android App |
+| --- | --- |
+| <img src="docs/images/jellyhub-dashboard.png" alt="JellyHub 设备空间：两台在线演示设备和独立智能体授权" width="580"><br><sub>演示数据 · 多设备状态与智能体授权</sub> | <img src="docs/images/jellyhere-android.jpg" alt="三星真机上的果冻 Android App 首页，包含连接状态、无线调试入口和星星悬浮角色" width="220"><br><sub>三星真机 · 未展示授权令牌</sub> |
 
 ## 从一次无线调试重连开始
 
@@ -44,7 +42,7 @@ JellyHere 让 Codex 等通用智能体按需理解手机屏幕、读取界面元
 | --- | --- |
 | 跨网络连接 | Android 主动连 Go relay；智能体通过 HTTPS MCP 接入，双方无需同一局域网 |
 | 理解屏幕 | `get_screen` 返回无障碍界面树和可选的压缩截图；只需元素时可关闭图片 |
-| 操作界面 | 按元素路径点击，或执行坐标点击、滑动、输入、返回与主页；界面变化后重新读屏 |
+| 操作界面 | 可按包名打开目标 App，按元素路径点击，或执行坐标点击、滑动、输入、返回与主页；界面变化后重新读屏 |
 | 多设备 | 为每台设备指定 ID；JellyHub 可查看在线状态，并给每个智能体单独选择设备与只读/控制权限 |
 | 手机端控制 | 星星等悬浮角色可贴边、显示状态和暂停远程访问；提供无线调试快捷入口 |
 | 开发者 CLI | `jellyhere doctor` 检查连接；`jellyhere adb connect --device <id>` 按需恢复本地 ADB |

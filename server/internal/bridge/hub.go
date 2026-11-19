@@ -279,6 +279,15 @@ func (h *Hub) DisconnectConnection(id string, conn *websocket.Conn) {
 func (h *Hub) Call(ctx context.Context, deviceID, method string, params any) (raw json.RawMessage, err error) {
 	started := time.Now()
 	var queueMS int64
+	imageRequested := "-"
+	if method == "get_screen" {
+		imageRequested = "true"
+		if fields, ok := params.(map[string]any); ok {
+			if include, ok := fields["includeImage"].(bool); ok && !include {
+				imageRequested = "false"
+			}
+		}
+	}
 	defer func() {
 		status := "ok"
 		switch {
@@ -291,8 +300,8 @@ func (h *Hub) Call(ctx context.Context, deviceID, method string, params any) (ra
 		case err != nil:
 			status = "error"
 		}
-		log.Printf("device_call trace=%s device=%s method=%s status=%s total_ms=%d queue_ms=%d result_bytes=%d",
-			callTrace(ctx), deviceID, method, status, time.Since(started).Milliseconds(), queueMS, len(raw))
+		log.Printf("device_call trace=%s device=%s method=%s status=%s started_unix_ms=%d total_ms=%d queue_ms=%d result_bytes=%d image_requested=%s",
+			callTrace(ctx), deviceID, method, status, started.UnixMilli(), time.Since(started).Milliseconds(), queueMS, len(raw), imageRequested)
 	}()
 	h.mu.RLock()
 	d := h.devices[deviceID]

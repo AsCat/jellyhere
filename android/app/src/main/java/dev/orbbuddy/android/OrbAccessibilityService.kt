@@ -303,6 +303,10 @@ class OrbAccessibilityService : AccessibilityService() {
                 replyError(webSocket, id, "remote API authorization revoked")
                 return
             }
+            if (apiGrantId.isNotEmpty() && method == "launch_app") {
+                replyError(webSocket, id, "app launch is unavailable to a single-app API grant")
+                return
+            }
             if (apiGrantId.isNotEmpty() && method in listOf("tap", "swipe", "press_key") && !controlPackageAllowed()) {
                 replyError(webSocket, id, "control is limited to the authorized debuggable app")
                 return
@@ -313,6 +317,7 @@ class OrbAccessibilityService : AccessibilityService() {
                 "swipe" -> "滑动屏幕"
                 "input_text" -> "输入文字"
                 "press_key" -> "执行按键"
+                "launch_app" -> "打开应用"
                 "get_app_info" -> "查询应用"
                 "open_wireless_debugging_settings" -> "打开无线调试设置"
                 "wake_screen" -> "唤亮屏幕"
@@ -347,6 +352,7 @@ class OrbAccessibilityService : AccessibilityService() {
                     params.getInt("x2"), params.getInt("y2"), params.getLong("durationMs"))
                 "input_text" -> inputText(webSocket, id, params.getString("text"))
                 "press_key" -> pressKey(webSocket, id, params.getString("key"), apiGrantId.isNotEmpty())
+                "launch_app" -> launchApp(webSocket, id, params.getString("packageName"))
                 "get_app_info" -> getAppInfo(webSocket, id, params.getString("packageName"))
                 "open_wireless_debugging_settings" -> openWirelessDebuggingSettings(webSocket, id)
                 else -> replyError(webSocket, id, "unknown method")
@@ -743,6 +749,30 @@ class OrbAccessibilityService : AccessibilityService() {
             replyOK(webSocket, id, result)
         } catch (_: PackageManager.NameNotFoundException) {
             replyError(webSocket, id, "package not found or hidden by Android package visibility")
+        }
+    }
+
+    private fun launchApp(webSocket: WebSocket, id: String, targetPackage: String) {
+        if (!targetPackage.matches(Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+"))) {
+            replyError(webSocket, id, "invalid package name")
+            return
+        }
+        if (rootInActiveWindow?.packageName?.toString() == targetPackage) {
+            replyOK(webSocket, id, JSONObject().put("packageName", targetPackage)
+                .put("opened", false).put("alreadyForeground", true))
+            return
+        }
+        val intent = packageManager.getLaunchIntentForPackage(targetPackage)
+        if (intent == null) {
+            replyError(webSocket, id, "app not installed, not visible, or has no launcher activity")
+            return
+        }
+        try {
+            startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            replyOK(webSocket, id, JSONObject().put("packageName", targetPackage)
+                .put("opened", true))
+        } catch (_: RuntimeException) {
+            replyError(webSocket, id, "app could not be opened")
         }
     }
 

@@ -4,6 +4,15 @@
 
 服务端默认在 systemd journal 记录 `mcp_request` 与 `device_call`。两者用 `trace` 关联，分别给出 MCP 请求总耗时、手机调用总耗时、设备串行队列等待时间、结果字节数和成功/失败类别。日志不包含工具参数、截图、界面树或输入内容。
 
+可用标准库脚本汇总一次任务的日志；先用任务开始/结束时间限定范围，多客户端同时运行时再加 `--client-ref` 或 `--device`：
+
+```bash
+journalctl -u jellyhere-managed.service --since '2026-11-20 10:00:00' --until '2026-11-20 10:10:00' -o cat \
+  | python3 tools/jellyhere_trace_report.py --device xiaomi
+```
+
+脚本统计每种工具的调用次数、P50/P90 手机往返时间、返回字节数、错误次数、截图与纯界面树请求次数，并提供 `--json` 输出便于同场景前后对比。`client_ref` 是服务端日志中的令牌哈希短标识，不是令牌原文。若使用自托管实例，把 systemd 服务名换成 `jellyhere.service`。
+
 例如 `device_call ... method=get_screen total_ms=420 queue_ms=0 result_bytes=81000` 可说明手机往返和响应体大小；同一 `trace` 的 `mcp_request` 可用于估算服务器处理与序列化耗时。相邻请求之间的间隔包含智能体决策、网络与页面等待，不能直接等同于模型推理时间。当前元数据日志也无法回溯启用之前的工具细节。
 
 2026-11-20 的[奶茶外卖实测](use-cases/01-takeout/README.md)中，Nginx 在约 3 分 52 秒内记录到 58 次 WorkBuddy MCP 请求，响应累计约 1.5 MB，19 次响应超过 50 KB。旧版日志没有工具名和请求耗时，因此只能判断多轮交互是主要优化方向，不能断言具体哪一步最慢。此组数据属于单次任务，不作为性能承诺。

@@ -29,6 +29,7 @@ Android 持有设备令牌，连接 `GET /device?id=primary`，请求头 `Author
 - `input_text`: `{"text":"hello"}`，替换当前聚焦输入框内容，最多 1000 字符。
 - `press_key`: `{"key":"back"}` 或 `home`。
 - `get_app_info`: `{"packageName":"com.example.app"}`。
+- `launch_app`: `{"packageName":"com.example.app"}`。仅控制权限；直接打开已安装且有启动入口的 App，若已在前台则不重复打开。打开后重新读取界面再操作。
 - `open_wireless_debugging_settings`: `{}`。尝试打开系统“无线调试”页面；机型不支持直达时只打开开发者选项，不直接改变开关。
 - `heartbeat`: `{}`。仅服务端保活使用，客户端返回 `{"alive":true,"paused":false,"manufacturer":"...","model":"..."}`，不作为 MCP 工具公开。
 
