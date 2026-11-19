@@ -20,6 +20,6 @@ WorkBuddy 官方也允许静态令牌 `auth_mode: token`，但用户须手动从
 
 ## 打包与审核
 
-在仓库根目录运行 `python3 scripts/validate-workbuddy-connector.py --package`，得到 `dist/workbuddy/jellyhere-connector-0.1.0.zip`。提交审核前在 WorkBuddy 开发者入口导入这个包，使用独立测试账户完成登录、设备选择、工具发现、只读与控制权限以及撤销测试。审核测试账户应使用单独空间和专用测试设备，不能指向维护者的个人手机。若平台对 OAuth 字段给出兼容性错误，再按其回调与服务日志调整。
+在仓库根目录运行 `python3 scripts/validate-workbuddy-connector.py --package`，得到 `dist/workbuddy/jellyhere-connector-0.1.1.zip`。提交审核前在 WorkBuddy 开发者入口导入这个包，使用独立测试账户完成登录、设备选择、工具发现、只读与控制权限以及撤销测试。审核测试账户应使用单独空间和专用测试设备，不能指向维护者的个人手机。若平台对 OAuth 字段给出兼容性错误，再按其回调与服务日志调整。
 
 参考：[WorkBuddy 连接器官方规范](https://open.workbuddy.cn/docs/connector)、[MCP Authorization 规范](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization)。
