@@ -14,4 +14,4 @@
 
 首个公开预览版 `v0.5.5` 提供正式签名 APK 和校验值；三星 SM-F936U 已安装与站点分发文件逐字节相同的 APK。小米当前是同版本的调试签名包，不能作为正式版覆盖升级样本。下一次发布前仍须在至少一台手机上验证从上一正式版的覆盖升级和回滚演练。GitHub 的[Release 文档](https://docs.github.com/en/repositories/releasing-projects-on-github)说明了 tag、发布资源与发行说明的关系。
 
-Go 服务的 Linux amd64/arm64 发布候选包可运行 `./scripts/build-server-release.sh` 构建，结果和 `checksums.sha256` 写入 Git 忽略的 `dist/`。Linux amd64 包已在独立本机端口启动并通过 `/healthz`；arm64 包尚未做对应架构的运行时验收。当前源码的 APK 版本为 `0.5.5`。
+Go 服务的 Linux amd64/arm64 发布候选包可运行 `./scripts/build-server-release.sh` 构建，结果和 `checksums.sha256` 写入 Git 忽略的 `dist/`。Linux amd64 包已在独立本机端口启动并通过 `/healthz`；arm64 包尚未做对应架构的运行时验收。当前源码的 APK 版本为 `0.5.6`；公开 Release 在真机覆盖安装验收后更新。
