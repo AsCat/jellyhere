@@ -4,6 +4,8 @@ This file records changes from the first public preview onward.
 
 ## Unreleased
 
+- Unify the JellyHere brand icon around the warm yellow star mascot on fresh blue across Android launcher and notification, WorkBuddy connector package, and JellyHub web surfaces.
+
 ## 0.5.5 — 2026-11-20 (public preview)
 
 - Redesign the JellyHub login and device dashboard with responsive cards, visible device counts, online status, and a separate add-device flow; add a managed-console shortcut to the Android floating menu.

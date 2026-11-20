@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
+  <link rel="icon" type="image/svg+xml" href="/brand-icon.svg">
   <title>JellyHub · 管理你的设备空间</title>
   <style>
     :root {
@@ -26,10 +27,7 @@
     .site-header { background: #fff; border-bottom: 1px solid #e8edf5; }
     .header-inner { min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
     .brand { display: inline-flex; align-items: center; gap: 12px; color: #18253e; font-size: 19px; font-weight: 780; letter-spacing: -.025em; text-decoration: none; }
-    .brand-mark { position: relative; display: inline-block; width: 35px; height: 35px; border-radius: 12px; background: #f4bd55; box-shadow: inset 0 -4px #e9a63e; transform: rotate(-9deg); }
-    .brand-mark::before, .brand-mark::after { content: ""; position: absolute; top: 15px; width: 4px; height: 4px; border-radius: 50%; background: #694627; }
-    .brand-mark::before { left: 11px; }
-    .brand-mark::after { right: 10px; }
+    .brand-mark { display:block; width:35px; height:35px; flex:none; border-radius:10px; }
     .header-link { color: #61708a; font-size: 13px; text-decoration: none; }
     .header-link:hover { color: #3659c9; }
     main { padding-top: 42px; padding-bottom: 48px; }
@@ -53,7 +51,7 @@
     .visual-phone { width: 42px; height: 62px; flex: none; border: 3px solid #9bb1e4; border-radius: 10px; background: #eef3ff; }
     .visual-phone::after { content: ""; display: block; width: 14px; height: 3px; margin: 5px auto; border-radius: 3px; background: #9bb1e4; }
     .visual-line { width: 30px; height: 2px; flex: none; background: #9bb1e4; }
-    .visual-hub { display: grid; place-items: center; width: 56px; height: 56px; flex: none; border: 1px solid #d6e2fa; border-radius: 16px; background: #eff4ff; color: #4b6dd0; font-weight: 800; }
+    .visual-hub { display:block; width:56px; height:56px; flex:none; border-radius:16px; }
     .visual-copy { margin-left: 4px; font-size: 12px; line-height: 1.55; color: #647590; }
     .visual-copy strong { display: block; color: #263f72; font-size: 14px; }
     .login-card { padding: 34px; }
@@ -173,7 +171,7 @@
 <body>
   <header class="site-header">
     <div class="shell header-inner">
-      <a class="brand" href="/" aria-label="JellyHub 首页"><span class="brand-mark" aria-hidden="true"></span>JellyHub</a>
+      <a class="brand" href="/" aria-label="JellyHub 首页"><img class="brand-mark" src="/brand-icon.svg" alt="">JellyHub</a>
       <a class="header-link" href="https://github.com/AsCat/jellyhere" target="_blank" rel="noopener noreferrer">开源项目 ↗</a>
     </div>
   </header>
@@ -186,7 +184,7 @@
         <p>连接你的设备，让智能体理解屏幕、执行操作，在你的掌控下处理真实任务。JellyHere 从 Android 开始，探索未来的跨设备智能体。</p>
         <div class="feature-list"><span>理解屏幕</span><span>跨网络连接</span><span>多设备协作</span></div>
         <div class="login-visual" aria-hidden="true">
-          <span class="visual-phone"></span><span class="visual-line"></span><span class="visual-hub">J</span>
+          <span class="visual-phone"></span><span class="visual-line"></span><img class="visual-hub" src="/brand-icon.svg" alt="">
           <span class="visual-copy"><strong>你的设备空间</strong>把智能体与真实设备连接起来</span>
         </div>
       </div>

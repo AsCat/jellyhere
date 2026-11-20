@@ -25,6 +25,8 @@ def main():
     missing = [name for name in sorted(REQUIRED) if not (SOURCE / name).is_file()]
     if missing:
         fail("missing files: " + ", ".join(missing))
+    if (SOURCE / "icon.svg").read_bytes() != (ROOT / "assets/brand/jellyhere-icon.svg").read_bytes():
+        fail("WorkBuddy icon must match the approved brand source")
     meta = json.loads((SOURCE / "connector-meta.json").read_text(encoding="utf-8"))
     if meta.get("source") != "jellyhere" or meta.get("type") != "mcp":
         fail("connector source/type mismatch")

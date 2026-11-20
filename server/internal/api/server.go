@@ -33,6 +33,7 @@ type Config struct {
 
 func NewHandler(hub *bridge.Hub, cfg Config) http.Handler {
 	mux := http.NewServeMux()
+	registerBrandIcon(mux)
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")

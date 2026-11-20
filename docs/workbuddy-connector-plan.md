@@ -28,7 +28,7 @@ WorkBuddy 官方也允许静态令牌 `auth_mode: token`，但用户须手动从
 
 ## 打包、更新与发布后验收
 
-在仓库根目录运行 `python3 scripts/validate-workbuddy-connector.py --package`，得到 `dist/workbuddy/jellyhere-connector-0.1.1.zip`。仓库当前包版本为 0.1.1；平台实际发布的版本须在 WorkBuddy 开发者后台核对，不能仅凭本地包推断。以后更新连接器时递增版本并重新提交审核。
+在仓库根目录运行 `python3 scripts/validate-workbuddy-connector.py --package`，得到 `dist/workbuddy/jellyhere-connector-0.1.2.zip`。仓库当前 0.1.2 是统一图标的更新候选包；WorkBuddy 市场的现行版本仍以开发者后台为准，不能仅凭本地包推断。按[官方更新流程](https://open.workbuddy.cn/docs/connector)递增版本并重新提交审核后，新图标才会出现在市场。
 
 发布后用**全新 WorkBuddy 账户、独立 JellyHub 测试空间和专用测试设备**走一遍：市场搜索与连接 → JellyHub 登录 → 选择设备并授只读 → 发现工具并读屏 → 增授控制并执行无敏感内容的测试操作 → 撤销授权并确认旧连接失效。另测手机断线重连、双设备选择及令牌刷新。测试账户不要绑定维护者的个人手机。若市场面板未出现连接器，先查平台包版本、市场注入与客户端加载日志；授权页尚未打开时，不应把问题归因于 JellyHub OAuth。
 

@@ -16,10 +16,10 @@ import kotlin.math.sin
 enum class OrbCharacter(val label: String, val description: String) {
     YUANYUAN("圆圆", "经典蓝色果冻"),
     YAYA("芽芽", "绿叶和种子形伙伴"),
-    XINGZI("星星", "暖黄色星形伙伴");
+    XINGZI("星星", "暖黄色果冻星星");
 
     companion object {
-        fun from(value: String?) = entries.firstOrNull { it.name == value } ?: YUANYUAN
+        fun from(value: String?) = entries.firstOrNull { it.name == value } ?: XINGZI
     }
 }
 
@@ -27,7 +27,7 @@ enum class OrbReaction { LOOK, TAP, SWIPE, TYPE }
 
 /** Small vector characters share one renderer, so previews and the overlay always match. */
 class OrbFaceView(context: Context, private val animated: Boolean = true) : View(context) {
-    var character = OrbCharacter.YUANYUAN
+    var character = OrbCharacter.XINGZI
         set(value) { field = value; invalidate() }
     var paused = false
         set(value) { field = value; invalidate() }

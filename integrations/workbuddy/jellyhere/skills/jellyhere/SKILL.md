@@ -3,7 +3,7 @@ name: jellyhere
 description: 查看用户明确授权的 Android 手机状态、界面和应用信息。
 description_zh: 通过果冻查看用户明确授权的 Android 手机状态、当前界面和应用信息。
 description_en: Inspect status, current UI, and app information on explicitly authorized Android phones.
-version: 0.1.1
+version: 0.1.2
 author: JellyHere
 ---
 

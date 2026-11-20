@@ -65,7 +65,7 @@ class SessionService : Service() {
             System.currentTimeMillis() - prefs.getLong("api_last_used_at", 0L) < 5 * 60_000L
         val keepAwake = prefs.getLong("keep_awake_until", 0L) > System.currentTimeMillis()
         val builder = Notification.Builder(this, channelId)
-            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setSmallIcon(R.drawable.ic_status_star)
             .setContentTitle(if (keepAwake) "果冻临时保持亮屏" else if (apiActive) "果冻 HTTPS 远程访问中" else "果冻测试会话已开启")
             .setContentText(if (keepAwake) "最长 30 分钟自动结束；点击打开果冻，或点操作立即结束" else if (apiActive) "点击打开果冻，可立即撤销授权" else "后台保持连接会增加耗电；点击可停止会话")
             .setContentIntent(openApp)

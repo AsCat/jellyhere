@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JellyHere · 统一图标方向预览</title>
+  <style>
+    :root { color-scheme: light; --ink:#22304a; --muted:#6e7e96; --line:#e2e8f2; --paper:#f6f8fc; --card:#fff; --a-bg:#3b6fab; --a-bubble:#83a9d0; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:radial-gradient(circle at 12% 0%,#fff1d6 0,transparent 28%),radial-gradient(circle at 87% 15%,#e9eeff 0,transparent 30%),var(--paper); font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif; }
+    button { font:inherit; cursor:pointer; }
+    .sheet { width:min(1320px,calc(100% - 48px)); margin:0 auto; padding:44px 0 72px; }
+    .eyebrow { margin:0 0 10px; color:#bc7b34; font-size:12px; font-weight:800; letter-spacing:.15em; }
+    h1 { margin:0 0 10px; font-size:clamp(30px,4vw,48px); line-height:1.13; letter-spacing:-.04em; }
+    .intro { max-width:780px; margin:0; color:var(--muted); font-size:15px; }
+    .toolbar { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:14px; margin:27px 0 24px; }
+    .context { display:inline-flex; gap:8px; align-items:center; color:#6a7890; font-size:13px; }
+    .context strong { color:#344763; }
+    .mode { display:inline-flex; padding:4px; border:1px solid #dce4ef; border-radius:11px; background:#fff; }
+    .mode button { min-height:34px; padding:6px 12px; border:0; border-radius:8px; background:none; color:#6f7e94; font-size:12px; font-weight:750; }
+    .mode button[aria-pressed="true"] { background:#253b5d; color:#fff; }
+    .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; align-items:stretch; }
+    .concept { min-width:0; overflow:hidden; border:1px solid var(--line); border-radius:22px; background:var(--card); box-shadow:0 18px 50px #2e45610a; }
+    .concept.selected { border-color:#e7ad54; box-shadow:0 0 0 3px #ffe2a2,0 18px 50px #2e45610a; }
+    .concept-head { padding:24px 24px 0; }
+    .row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .letter { color:#c18b45; font-size:12px; font-weight:900; letter-spacing:.15em; }
+    .badge { padding:4px 8px; border-radius:100px; background:#fff1d7; color:#98621e; font-size:10px; font-weight:800; white-space:nowrap; }
+    .concept h2 { margin:12px 0 3px; font-size:21px; letter-spacing:-.025em; }
+    .concept-desc { min-height:45px; margin:0; color:#718099; font-size:12px; }
+    .stage { display:grid; place-items:center; min-height:190px; margin:20px 24px 20px; border-radius:17px; background:linear-gradient(135deg,#f2f5fb,#fffaf1); transition:background .2s; }
+    body.dark .stage { background:linear-gradient(135deg,#24324c,#34445e); }
+    .hero-icon { display:block; width:142px; height:142px; filter:drop-shadow(0 15px 12px #14233a22); }
+    .palette { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; margin:-5px 24px 17px; }
+    .color-choice { display:flex; align-items:center; gap:7px; min-width:0; min-height:46px; padding:5px 6px; border:1px solid #e4eaf3; border-radius:10px; background:#fff; color:#67778f; text-align:left; font-size:10px; font-weight:700; }
+    .color-choice svg { width:31px; height:31px; flex:none; }
+    .color-choice[aria-pressed="true"] { border-color:#92b5de; background:#f0f6ff; color:#2f6297; }
+    .color-choice:focus-visible { outline:3px solid #b7d4f7; }
+    .palette-note { grid-column:1/-1; color:#8d9aae; font-size:10px; }
+    .mockups { display:grid; gap:11px; padding:0 24px 24px; }
+    .mockup-label { color:#8b98aa; font-size:10px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
+    .mockup { display:flex; align-items:center; gap:12px; min-height:68px; padding:10px 12px; border:1px solid #e8edf4; border-radius:13px; background:#fbfcfe; }
+    .mockup svg { width:46px; height:46px; flex:none; }
+    .mockup strong { display:block; font-size:13px; }
+    .mockup small { color:#8694a9; font-size:11px; }
+    .mockup.workbuddy { background:#fff; }
+    .mockup.workbuddy svg { width:39px; height:39px; }
+    .mockup.web { min-height:53px; }
+    .mockup.web svg { width:29px; height:29px; }
+    .mockup.web strong { font-size:15px; }
+    .micro { display:flex; align-items:center; gap:15px; padding:0 2px; }
+    .micro svg { width:24px; height:24px; }
+    .micro .tiny { width:16px; height:16px; }
+    .micro span { color:#94a1b2; font-size:11px; }
+    .pick { width:100%; min-height:42px; margin-top:5px; border:1px solid #dfe6f0; border-radius:10px; background:#fff; color:#405678; font-size:12px; font-weight:800; }
+    .pick:hover,.pick:focus-visible { border-color:#e5a956; background:#fffbf3; outline:0; }
+    .selected .pick { border-color:#e5a956; background:#fff4dd; color:#98621e; }
+    .notes { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:22px; }
+    .note { padding:20px 22px; border:1px solid var(--line); border-radius:16px; background:#fff; }
+    .note h3 { margin:0 0 8px; font-size:15px; }
+    .note p { margin:0; color:#728099; font-size:12px; }
+    .selection { margin-top:18px; color:#64758e; font-size:13px; }
+    .selection strong { color:#a76a22; }
+    svg.defs { position:absolute; width:0; height:0; overflow:hidden; }
+    @media(max-width:1050px){ .grid{grid-template-columns:1fr 1fr}.concept:last-child{grid-column:span 2}.concept:last-child .mockups{grid-template-columns:1fr 1fr}.concept:last-child .micro,.concept:last-child .pick{grid-column:span 2} }
+    @media(max-width:690px){ .sheet{width:min(100% - 28px,420px);padding:30px 0 48px}.grid{grid-template-columns:1fr}.concept:last-child{grid-column:auto}.concept:last-child .mockups{grid-template-columns:1fr}.concept:last-child .micro,.concept:last-child .pick{grid-column:auto}.notes{grid-template-columns:1fr}.stage{min-height:170px} }
+  </style>
+</head>
+<body>
+  <svg class="defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <linearGradient id="jelly-star" x1=".12" y1=".02" x2=".88" y2=".98" objectBoundingBox="true"><stop stop-color="#fff2ac"/><stop offset=".48" stop-color="#ffd460"/><stop offset="1" stop-color="#f5a640"/></linearGradient>
+      <linearGradient id="jelly-blob" x1=".14" y1=".04" x2=".86" y2=".96" objectBoundingBox="true"><stop stop-color="#fff4c7"/><stop offset=".5" stop-color="#ffc96b"/><stop offset="1" stop-color="#f2a879"/></linearGradient>
+      <linearGradient id="jelly-block" x1=".05" y1=".02" x2=".95" y2=".98" objectBoundingBox="true"><stop stop-color="#ffe7a2"/><stop offset=".58" stop-color="#ffc35b"/><stop offset="1" stop-color="#ed9d43"/></linearGradient>
+    </defs>
+    <symbol id="mark-a" viewBox="0 0 96 96">
+      <rect width="96" height="96" rx="23" fill="var(--a-bg)"/>
+      <circle cx="75" cy="21" r="12" fill="var(--a-bubble)" opacity=".32"/><circle cx="23" cy="77" r="15" fill="var(--a-bubble)" opacity=".18"/>
+      <path d="M45 20 L60 30 L76 38 L69 55 L67 73 L48 69 L29 73 L27 55 L20 38 L36 30Z" fill="#b56b2b" opacity=".38" transform="translate(0 3)"/>
+      <path d="M45 17.4 Q48 14 51 17.4 L59.9 27.5 Q61.5 29.4 63.8 30.4 L76.2 35.7 Q80.3 37.5 78 41.4 L71.1 53 Q69.9 55.1 69.6 57.6 L68.4 71 Q68 75.5 63.6 74.5 L50.4 71.5 Q48 71 45.6 71.5 L32.4 74.5 Q28 75.5 27.6 71 L26.4 57.6 Q26.1 55.1 24.9 53 L18 41.4 Q15.7 37.5 19.8 35.7 L32.2 30.4 Q34.5 29.4 36.1 27.5Z" fill="url(#jelly-star)" stroke="#c98432" stroke-width="2.2"/>
+      <path d="M32 32 Q46 19 57 26" fill="none" stroke="#fff9d8" stroke-width="5" stroke-linecap="round" opacity=".62"/>
+      <ellipse cx="37" cy="49" rx="3" ry="3.6" fill="#704729"/><ellipse cx="59" cy="49" rx="3" ry="3.6" fill="#704729"/>
+      <path d="M44 58 Q48 62 52 58" fill="none" stroke="#9b5b39" stroke-width="2.5" stroke-linecap="round"/>
+      <ellipse cx="29" cy="55" rx="4.4" ry="2.6" fill="#f29478" opacity=".7"/><ellipse cx="67" cy="55" rx="4.4" ry="2.6" fill="#f29478" opacity=".7"/>
+    </symbol>
+    <symbol id="mark-b" viewBox="0 0 96 96">
+      <rect width="96" height="96" rx="23" fill="#fff0dc"/>
+      <path d="M49 17 C62 17 71 24 74 34 C79 39 78 47 75 52 C79 59 74 69 68 74 C61 80 51 77 44 79 C34 82 24 76 21 67 C17 61 18 54 20 48 C17 41 22 32 28 26 C34 20 40 17 49 17Z" fill="#d87e48" opacity=".24" transform="translate(0 3)"/>
+      <path d="M49 17 C62 17 71 24 74 34 C79 39 78 47 75 52 C79 59 74 69 68 74 C61 80 51 77 44 79 C34 82 24 76 21 67 C17 61 18 54 20 48 C17 41 22 32 28 26 C34 20 40 17 49 17Z" fill="url(#jelly-blob)" stroke="#d98e5a" stroke-width="2.4"/>
+      <path d="M27 38 C31 27 40 22 51 23" fill="none" stroke="#fffaf0" stroke-width="5.5" stroke-linecap="round" opacity=".76"/>
+      <path d="M29 69 Q42 75 54 71" fill="none" stroke="#ffe9b5" stroke-width="3" stroke-linecap="round" opacity=".6"/>
+      <circle cx="36" cy="49" r="3.5" fill="#714b3d"/><circle cx="59" cy="49" r="3.5" fill="#714b3d"/>
+      <path d="M43 59 Q48 64 53 59" fill="none" stroke="#ac6958" stroke-width="2.7" stroke-linecap="round"/>
+      <ellipse cx="27" cy="56" rx="4.2" ry="2.6" fill="#ed998c" opacity=".75"/><ellipse cx="68" cy="56" rx="4.2" ry="2.6" fill="#ed998c" opacity=".75"/>
+      <path d="M71 10 L74.3 18.7 L83 22 L74.3 25.3 L71 34 L67.7 25.3 L59 22 L67.7 18.7Z" fill="#fff8d3" stroke="#e2a95d" stroke-width="1.5"/>
+    </symbol>
+    <symbol id="mark-c" viewBox="0 0 96 96">
+      <rect width="96" height="96" rx="23" fill="#223b55"/>
+      <circle cx="72" cy="69" r="16" fill="#456481" opacity=".2"/>
+      <path d="M32 29 H65 V56 C65 70 57 77 45 77 C35 77 28 71 27 62" fill="none" stroke="#b76832" stroke-width="19" stroke-linecap="round" stroke-linejoin="round" opacity=".5" transform="translate(0 3)"/>
+      <path d="M32 29 H65 V56 C65 70 57 77 45 77 C35 77 28 71 27 62" fill="none" stroke="url(#jelly-block)" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M33 25 H61" fill="none" stroke="#fff9db" stroke-width="4" stroke-linecap="round" opacity=".72"/>
+      <path d="M19 16 L21.1 21.9 L27 24 L21.1 26.1 L19 32 L16.9 26.1 L11 24 L16.9 21.9Z" fill="#fff3bd" stroke="#e6aa55" stroke-width="1"/>
+    </symbol>
+  </svg>
+
+  <main class="sheet">
+    <p class="eyebrow">JELLYHERE · BRAND EXPLORATION</p>
+    <h1>同一个果冻，出现在哪里都认得出。</h1>
+    <p class="intro">这三版都沿用暖黄色果冻材质。A 直接承接手机当前的“星星”角色，并增加蓝色背景对比；B 把角色变成更软的果冻团；C 用 JellyHere 的首字母做成更克制的果冻符号。下面的手机、WorkBuddy 和网站示例都使用同一枚图标。</p>
+    <div class="toolbar">
+      <div class="context"><strong>预览维度</strong><span>主图标 · 手机桌面 · 连接器卡片 · 网站页头 · 24/16px</span></div>
+      <div class="mode" role="group" aria-label="切换展示背景"><button id="light" type="button" aria-pressed="true">浅色背景</button><button id="dark" type="button" aria-pressed="false">深色背景</button></div>
+    </div>
+
+    <div class="grid">
+      <article class="concept" data-choice="A">
+        <div class="concept-head"><div class="row"><span class="letter">DIRECTION A</span><span class="badge">最接近当前星星 · 推荐</span></div><h2>星星果冻</h2><p class="concept-desc">把手机里已有的暖黄星星压成一枚完整的果冻徽章，保留表情和软弹高光。</p></div>
+        <div class="stage"><svg class="hero-icon" aria-label="A 星星果冻图标"><use href="#mark-a"/></svg></div>
+        <div class="palette" role="group" aria-label="方案 A 蓝色背景对比">
+          <button class="color-choice" type="button" data-name="原版深蓝" data-bg="#20395e" data-bubble="#456386" aria-pressed="false"><svg aria-hidden="true" style="--a-bg:#20395e;--a-bubble:#456386"><use href="#mark-a"/></svg><span>原版深蓝</span></button>
+          <button class="color-choice" type="button" data-name="清爽蓝" data-bg="#3b6fab" data-bubble="#83a9d0" aria-pressed="true"><svg aria-hidden="true" style="--a-bg:#3b6fab;--a-bubble:#83a9d0"><use href="#mark-a"/></svg><span>清爽蓝</span></button>
+          <button class="color-choice" type="button" data-name="天空蓝" data-bg="#5b8fc4" data-bubble="#afd2ed" aria-pressed="false"><svg aria-hidden="true" style="--a-bg:#5b8fc4;--a-bubble:#afd2ed"><use href="#mark-a"/></svg><span>天空蓝</span></button>
+          <span class="palette-note">当前展示：<strong id="a-color-name">清爽蓝</strong>。点击颜色会同步更新主图和应用场景。</span>
+        </div>
+        <div class="mockups"><span class="mockup-label">跨平台缩放</span><div class="mockup"><svg aria-hidden="true"><use href="#mark-a"/></svg><div><strong>果冻</strong><small>Android App · 桌面图标</small></div></div><div class="mockup workbuddy"><svg aria-hidden="true"><use href="#mark-a"/></svg><div><strong>果冻 JellyHere</strong><small>WorkBuddy · 连接器</small></div></div><div class="mockup web"><svg aria-hidden="true"><use href="#mark-a"/></svg><strong>JellyHub</strong></div><div class="micro"><svg aria-label="24 像素"><use href="#mark-a"/></svg><svg class="tiny" aria-label="16 像素"><use href="#mark-a"/></svg><span>小尺寸预览</span></div><button class="pick" type="button" aria-pressed="false">喜欢方案 A</button></div>
+      </article>
+      <article class="concept" data-choice="B">
+        <div class="concept-head"><div class="row"><span class="letter">DIRECTION B</span><span class="badge">更软萌 · 果冻感最强</span></div><h2>果冻泡泡</h2><p class="concept-desc">主角变成柔软的圆形果冻，右上角保留一颗小星，和悬浮角色建立联系。</p></div>
+        <div class="stage"><svg class="hero-icon" aria-label="B 果冻泡泡图标"><use href="#mark-b"/></svg></div>
+        <div class="mockups"><span class="mockup-label">跨平台缩放</span><div class="mockup"><svg aria-hidden="true"><use href="#mark-b"/></svg><div><strong>果冻</strong><small>Android App · 桌面图标</small></div></div><div class="mockup workbuddy"><svg aria-hidden="true"><use href="#mark-b"/></svg><div><strong>果冻 JellyHere</strong><small>WorkBuddy · 连接器</small></div></div><div class="mockup web"><svg aria-hidden="true"><use href="#mark-b"/></svg><strong>JellyHub</strong></div><div class="micro"><svg aria-label="24 像素"><use href="#mark-b"/></svg><svg class="tiny" aria-label="16 像素"><use href="#mark-b"/></svg><span>小尺寸预览</span></div><button class="pick" type="button" aria-pressed="false">喜欢方案 B</button></div>
+      </article>
+      <article class="concept" data-choice="C">
+        <div class="concept-head"><div class="row"><span class="letter">DIRECTION C</span><span class="badge">更简洁 · 工具品牌</span></div><h2>果冻 J</h2><p class="concept-desc">把 JellyHere 的 J 变成一条软弹果冻笔画，保留小星闪光，适合极小图标。</p></div>
+        <div class="stage"><svg class="hero-icon" aria-label="C 果冻 J 图标"><use href="#mark-c"/></svg></div>
+        <div class="mockups"><span class="mockup-label">跨平台缩放</span><div class="mockup"><svg aria-hidden="true"><use href="#mark-c"/></svg><div><strong>果冻</strong><small>Android App · 桌面图标</small></div></div><div class="mockup workbuddy"><svg aria-hidden="true"><use href="#mark-c"/></svg><div><strong>果冻 JellyHere</strong><small>WorkBuddy · 连接器</small></div></div><div class="mockup web"><svg aria-hidden="true"><use href="#mark-c"/></svg><strong>JellyHub</strong></div><div class="micro"><svg aria-label="24 像素"><use href="#mark-c"/></svg><svg class="tiny" aria-label="16 像素"><use href="#mark-c"/></svg><span>小尺寸预览</span></div><button class="pick" type="button" aria-pressed="false">喜欢方案 C</button></div>
+      </article>
+    </div>
+
+    <div class="notes"><div class="note"><h3>设计来源</h3><p>原先 Android 没有自定义启动图标，WorkBuddy 使用圆形果冻，网站用 CSS 方形表情。已选定方案 A 的“清爽蓝”，从一份矢量母版生成不同平台需要的尺寸。</p></div><div class="note"><h3>落地范围</h3><p>Android 启动与通知图标、JellyHub 页头和 favicon 已接入同一造型；WorkBuddy 图标已进入新版候选包，仍须平台审核后才会更新市场。悬浮星星保留原有动画。</p></div></div>
+    <p id="selection" class="selection" role="status">已选定方案 A · 清爽蓝。你仍可以点击卡片继续比较探索稿。</p>
+  </main>
+  <script>
+    const light = document.getElementById('light');
+    const dark = document.getElementById('dark');
+    function setMode(isDark) { document.body.classList.toggle('dark', isDark); light.setAttribute('aria-pressed', String(!isDark)); dark.setAttribute('aria-pressed', String(isDark)); }
+    light.addEventListener('click', () => setMode(false));
+    dark.addEventListener('click', () => setMode(true));
+    document.querySelectorAll('.pick').forEach(button => button.addEventListener('click', () => {
+      const choice = button.closest('.concept').dataset.choice;
+      document.querySelectorAll('.concept').forEach(card => { const selected = card.dataset.choice === choice; card.classList.toggle('selected', selected); card.querySelector('.pick').setAttribute('aria-pressed', String(selected)); });
+      document.getElementById('selection').innerHTML = `当前预览偏好：<strong>方案 ${choice}</strong>。请在对话里告诉我你选哪版，或指出想组合的细节。`;
+    }));
+    document.querySelectorAll('.color-choice').forEach(button => button.addEventListener('click', () => {
+      document.documentElement.style.setProperty('--a-bg', button.dataset.bg);
+      document.documentElement.style.setProperty('--a-bubble', button.dataset.bubble);
+      document.querySelectorAll('.color-choice').forEach(choice => choice.setAttribute('aria-pressed', String(choice === button)));
+      document.getElementById('a-color-name').textContent = button.dataset.name;
+    }));
+  </script>
+</body>
+</html>

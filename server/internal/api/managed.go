@@ -443,6 +443,7 @@ func (s *managedService) client(r *http.Request) (managedPrincipal, bool) {
 
 func (s *managedService) handler() http.Handler {
 	mux := http.NewServeMux()
+	registerBrandIcon(mux)
 	health := func(w http.ResponseWriter, _ *http.Request) { jsonResponse(w, 200, map[string]bool{"ok": true}) }
 	mux.HandleFunc("GET /healthz", health)
 	mux.HandleFunc("GET /health", health)
@@ -452,7 +453,7 @@ func (s *managedService) handler() http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "no-referrer")
-		w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src data:; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+		w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
 		_, _ = w.Write([]byte(managedHTML))
 	})
 	mux.HandleFunc("GET /managed.js", func(w http.ResponseWriter, _ *http.Request) {

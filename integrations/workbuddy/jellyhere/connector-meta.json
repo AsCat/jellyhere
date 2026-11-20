@@ -7,7 +7,7 @@
   "description_en": "Connect your Android phone so an assistant can inspect its screen and perform development testing actions after explicit authorization.",
   "source": "jellyhere",
   "type": "mcp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "minWorkbuddyVersion": "4.24.0",
   "auth_mode": "server-side",
   "server_auth": {
