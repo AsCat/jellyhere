@@ -2,7 +2,7 @@
 
 果冻由 Android App、Go relay 和 MCP 客户端组成。手机主动通过 WSS 连接 relay，电脑通过 HTTPS MCP 连接同一个 relay；运行时不需要 ADB 或同一局域网。
 
-使用 JellyHub 托管实例时，可跳过自行部署 relay：在托管站点用 GitHub 登录，下载 Android APK，网页生成添加设备二维码，再用 App 首页“扫码加入 JellyHub”扫描并确认。首次使用需在 Android 设置中手动启用果冻无障碍服务。设备在线后，网页再创建独立的 MCP 客户端授权。具体配置和边界见 [JellyHub 托管试验](managed-pilot.md)。以下步骤适用于自托管。
+使用 [JellyHub 托管实例](https://jellyhub.yuanxuyinli.com/)时，可跳过自行部署 relay：用 GitHub 登录，下载 Android APK，网页生成添加设备二维码，再用 App 首页“扫码加入 JellyHub”扫描并确认。首次使用需在 Android 设置中手动启用果冻无障碍服务。设备在线后，按[已发布的 WorkBuddy 连接器步骤](workbuddy-connector-plan.md#使用已发布的连接器)授权，或在网页为其他 MCP 客户端创建独立令牌。具体配置和边界见 [JellyHub 托管试验](managed-pilot.md)。以下步骤适用于自托管。
 
 ## 1. 启动 relay
 

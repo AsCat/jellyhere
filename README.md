@@ -8,6 +8,8 @@ JellyHere 让 Codex 等通用智能体按需理解手机屏幕、读取界面元
 
 [快速开始](docs/quickstart.md) · [真实场景](docs/use-cases/README.md) · [自托管](docs/self-host.md) · [MCP 接入](docs/client-setup.md) · [WorkBuddy 连接器](docs/workbuddy-connector-plan.md) · [CLI 与无线调试](docs/shortcuts.md) · [路线图](docs/roadmap.md)
 
+WorkBuddy 的 **JellyHere / 果冻连接器已通过审核并发布**。想直接试用，可先在 [JellyHub 托管站点](https://jellyhub.yuanxuyinli.com/)安装 Android App、扫码绑定设备，再到 WorkBuddy 连接器市场搜索 JellyHere 并完成设备授权。[查看具体步骤](docs/workbuddy-connector-plan.md#使用已发布的连接器)
+
 ## 看看果冻
 
 | JellyHub 控制台 | 果冻 Android App |
@@ -83,7 +85,7 @@ Go 服务不持久化屏幕内容；手机端可暂停后续读屏和操作。�
 | [`deploy/`](deploy/) | systemd、Nginx 部署模板 |
 | [`docs/`](docs/) | 快速开始、协议、平台规划与产品设计 |
 
-目前 Android 是实际可用的首个平台。iOS 和电脑端在[平台支持规划](docs/platform-support.md)中分别评估；它们的系统权限不同，不会简单照搬 Android 无障碍方案。WorkBuddy OAuth 连接器已完成真实账户授权和单次控制场景试用，平台审核仍待完成；也可继续按通用 MCP 方式手动接入。[连接器说明](docs/workbuddy-connector-plan.md)
+目前 Android 是实际可用的首个平台。iOS 和电脑端在[平台支持规划](docs/platform-support.md)中分别评估；它们的系统权限不同，不会简单照搬 Android 无障碍方案。WorkBuddy OAuth 连接器已发布，并完成真实账户授权和单次控制场景试用；新账户的独立上手验收仍需继续。[连接器说明](docs/workbuddy-connector-plan.md)
 
 ## 当前边界与参与开发
 

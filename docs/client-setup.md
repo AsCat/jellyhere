@@ -1,6 +1,6 @@
 # MCP 客户端接入
 
-把下面的 `your-domain.example` 换成[自己部署](self-host.md)的域名。本项目目前不提供公共设备接入服务。客户端需支持 MCP Streamable HTTP，并在每个请求中发送 `Authorization: Bearer <MCP 令牌>`。手机使用的是另一枚设备令牌，不能混用。
+下面的手动 MCP 配置面向[自托管](self-host.md)实例：把 `your-domain.example` 换成自己的域名。也可使用可选的 [JellyHub 托管试验](managed-pilot.md)；其 WorkBuddy 连接器通过浏览器 OAuth 授权，无需手动填写 MCP 令牌。手动配置的客户端需支持 MCP Streamable HTTP，并在每个请求中发送 `Authorization: Bearer <MCP 令牌>`。手机使用的是另一枚设备令牌，不能混用。
 
 ## Codex CLI / 桌面端
 
@@ -18,7 +18,7 @@ tool_timeout_sec = 30
 
 ## 其他智能体
 
-若 WorkBuddy 或其他客户端支持远程 Streamable HTTP MCP，可填写相同 URL 和 Bearer 令牌。若客户端只支持 stdio，需要一个本地 stdio 转发适配器；该适配器尚未纳入 MVP。不能仅凭产品名称推断其 MCP 兼容性。
+WorkBuddy 使用已发布的 [JellyHere 连接器](workbuddy-connector-plan.md#使用已发布的连接器)即可通过 JellyHub OAuth 连接；其他支持远程 Streamable HTTP MCP 的客户端可填写自托管 URL 和 Bearer 令牌。若客户端只支持 stdio，需要一个本地 stdio 转发适配器；该适配器尚未纳入 MVP。不能仅凭产品名称推断其 MCP 兼容性。
 
 先调用 `device_status`，确认目标设备在线且 `paused` 为 `false`。多台手机在线时，所有读屏和操作工具都要显式传 `deviceId`，例如 `primary` 或 `samsung`；省略时会返回歧义错误。手机端暂停时，所有读屏和操作命令会被拒绝，用户需在手机 App 或悬浮球上恢复。界面树有 `path` 和 `revision`，元素操作优先使用 `tap_element`；修订号过期时重新读屏。只判断文字或控件状态时用 `get_screen` 的 `includeImage=false` 和 `treeMode="compact"`；精简结果返回 `elements` 平铺列表，每项的 `path` 仍可传给 `tap_element`，`bounds` 为原始像素 `[left,top,right,bottom]`。需要视觉判断时才取图片，可设 `maxImageEdge=640` 等较小尺寸。默认仍是完整界面树和最长边 1280 像素、JPEG 质量 70 的图片。若目标 App 的包名已知且当前不在该 App，可用控制工具 `launch_app` 直接打开，再重新读屏；包名不确定时不要猜测。
 
