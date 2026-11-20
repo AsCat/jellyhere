@@ -284,10 +284,11 @@
 
       <section id="agents" class="card section-card" aria-labelledby="agents-title">
         <div class="section-heading"><div><p class="eyebrow">02 / AGENTS</p><h2 id="agents-title">智能体授权</h2><p class="muted">为每个智能体分别选择设备和权限，随时可以撤销。</p></div></div>
+        <div class="scope-note"><strong>使用 WorkBuddy？</strong><span>在 WorkBuddy 连接器市场搜索“果冻 JellyHere”并点击连接，随后在 JellyHub 选择设备和权限。无需生成下方的 MCP 令牌。<a href="https://github.com/AsCat/jellyhere/blob/main/docs/workbuddy-connector-plan.md#使用已发布的连接器" target="_blank" rel="noopener noreferrer">查看连接步骤</a></span></div>
         <div class="agent-grid">
           <div><div id="clients" class="agent-list"></div><p class="form-note">MCP 地址：<span id="mcp-url" class="code"></span></p></div>
           <form id="client-form">
-            <h3>新增授权</h3>
+            <h3>为其他 MCP 智能体生成令牌</h3>
             <label class="form-label" for="client-name">智能体名称</label>
             <input id="client-name" placeholder="例如 Codex" maxlength="40" required>
             <label class="form-label" for="client-scope">权限</label>
