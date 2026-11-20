@@ -22,7 +22,7 @@ JELLYHERE_GITHUB_CLIENT_ID=<client id>
 JELLYHERE_GITHUB_CLIENT_SECRET=<client secret>
 ```
 
-重启 `jellyhere-managed.service` 后，`GET /auth/config` 的 `github_enabled` 应为 `true`，首页才显示 GitHub 登录按钮。不要把 secret 放入 Git、网页或 APK。公网 Nginx 应转发 `/auth/`、`/pair/`、`/tenant/`、`/.well-known/oauth-*` 和 `/oauth/`，并提供固定签名的 `/download/jellyhere.apk`；`/manage/tenants` 仍只在本机访问。OAuth state、会话 Cookie 和网页写操作的 Origin 均由服务端校验。
+重启 `jellyhere-managed.service` 后，`GET /auth/config` 的 `github_enabled` 应为 `true`，首页才显示 GitHub 登录按钮。不要把 secret 放入 Git、网页或 APK。公网 Nginx 应转发 `/brand-icon.svg`、`/auth/`、`/pair/`、`/tenant/`、`/.well-known/oauth-*` 和 `/oauth/`，并提供固定签名的 `/download/jellyhere.apk`；`/manage/tenants` 仍只在本机访问。OAuth state、会话 Cookie 和网页写操作的 Origin 均由服务端校验。
 
 ## 配置邮箱注册与登录
 
