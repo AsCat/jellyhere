@@ -4,6 +4,8 @@ This file records changes from the first public preview onward.
 
 ## Unreleased
 
+- Preview a white Android launcher tile for better contrast on blue wallpapers, while keeping the same star mascot and the blue website/WorkBuddy brand icon.
+
 ## 0.5.6 — 2026-11-20 (public preview)
 
 - Unify the JellyHere brand icon around the warm yellow star mascot on fresh blue across Android launcher and notification, WorkBuddy connector package, and JellyHub web surfaces.

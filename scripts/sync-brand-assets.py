@@ -26,6 +26,21 @@ def foreground_svg(source: bytes) -> bytes:
     return ET.tostring(canvas, encoding="utf-8", xml_declaration=True)
 
 
+def android_icon_svg(source: bytes) -> bytes:
+    """Keep the shared mascot, with a white launcher tile for blue wallpapers."""
+    icon = ET.fromstring(source)
+    background = icon.find(f"{{{SVG_NS}}}g[@id='background']")
+    if background is None:
+        raise ValueError("brand SVG needs a background group")
+    tile = background.find(f"{{{SVG_NS}}}rect")
+    if tile is None:
+        raise ValueError("brand SVG needs a background tile")
+    tile.set("fill", "#FFFFFF")
+    for circle in background.findall(f"{{{SVG_NS}}}circle"):
+        circle.set("fill", "#BDD3E9")
+    return ET.tostring(icon, encoding="utf-8", xml_declaration=True)
+
+
 def render(renderer: str, source: bytes, size: int) -> bytes:
     return subprocess.run(
         [renderer, "--width", str(size), "--height", str(size)],
@@ -42,13 +57,15 @@ def main() -> None:
         parser.error("rsvg-convert is required (librsvg2-bin on Linux)")
     source = SOURCE.read_bytes()
     foreground = foreground_svg(source)
+    android_icon = android_icon_svg(source)
     outputs = {
         ROOT / "integrations/workbuddy/jellyhere/icon.svg": source,
         ROOT / "server/internal/api/brand-icon.svg": source,
+        ROOT / "assets/brand/jellyhere-icon-android.svg": android_icon,
         ROOT / "android/app/src/main/res/drawable-nodpi/ic_launcher_foreground.png": render(renderer, foreground, 432),
     }
     for density, size in (("mdpi", 48), ("hdpi", 72), ("xhdpi", 96), ("xxhdpi", 144), ("xxxhdpi", 192)):
-        outputs[ROOT / f"android/app/src/main/res/mipmap-{density}/ic_launcher.png"] = render(renderer, source, size)
+        outputs[ROOT / f"android/app/src/main/res/mipmap-{density}/ic_launcher.png"] = render(renderer, android_icon, size)
     for path, data in outputs.items():
         if args.check:
             if not path.is_file() or path.read_bytes() != data:
