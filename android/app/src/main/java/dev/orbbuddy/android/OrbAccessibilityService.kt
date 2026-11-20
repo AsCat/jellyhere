@@ -223,6 +223,12 @@ class OrbAccessibilityService : AccessibilityService() {
         )
     }
 
+    /** Future voice playback can update this independently of screen work effects. */
+    fun onSpeechPlaybackChanged(speaking: Boolean) {
+        if (Looper.myLooper() == Looper.getMainLooper()) overlay?.setSpeaking(speaking)
+        else handler.post { overlay?.setSpeaking(speaking) }
+    }
+
     private fun reconnect() {
         if (destroyed) return
         stopKeepAwake()
@@ -462,7 +468,8 @@ class OrbAccessibilityService : AccessibilityService() {
                     if (prefs().getBoolean("paused", false)) replyError(webSocket, id, "remote access is paused on the phone")
                     else if (apiGrantId != null && !validAPIGrant(apiGrantId)) replyError(webSocket, id, "remote API authorization revoked")
                     else {
-                        if (result.has("imageBase64")) orb?.react(OrbReaction.LOOK)
+                        // Tree-only reads are the normal Agent path and should animate too.
+                        orb?.react(OrbReaction.LOOK)
                         replyOK(webSocket, id, result)
                     }
                 }
@@ -582,8 +589,9 @@ class OrbAccessibilityService : AccessibilityService() {
                 override fun onCompleted(gestureDescription: GestureDescription?) {
                     orb?.restoreAfterCapture()
                     if (x2 != null && y2 != null) {
-                        val direction = if (kotlin.math.abs(x2 - x1) >= kotlin.math.abs(y2 - y1)) x2 - x1 else y2 - y1
-                        orb?.react(OrbReaction.SWIPE, direction.toFloat())
+                        val vertical = kotlin.math.abs(y2 - y1) > kotlin.math.abs(x2 - x1)
+                        val direction = if (vertical) y2 - y1 else x2 - x1
+                        orb?.react(OrbReaction.SWIPE, direction.toFloat(), vertical)
                     } else orb?.react(OrbReaction.TAP)
                     replyOK(webSocket, id, JSONObject().put("done", true))
                 }
@@ -732,7 +740,7 @@ class OrbAccessibilityService : AccessibilityService() {
         }
         if (performGlobalAction(action)) {
             if (apiControl) prefs().edit().putBoolean("api_control_suspended", true).apply()
-            overlay?.react(OrbReaction.SWIPE, -1f)
+            overlay?.react(OrbReaction.KEY)
             replyOK(webSocket, id, JSONObject().put("done", true))
         }
         else replyError(webSocket, id, "global action failed")

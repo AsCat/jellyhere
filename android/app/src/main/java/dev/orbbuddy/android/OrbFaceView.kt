@@ -23,7 +23,7 @@ enum class OrbCharacter(val label: String, val description: String) {
     }
 }
 
-enum class OrbReaction { LOOK, TAP, SWIPE, TYPE }
+enum class OrbReaction { LOOK, TAP, SWIPE, TYPE, KEY }
 
 /** Small vector characters share one renderer, so previews and the overlay always match. */
 class OrbFaceView(context: Context, private val animated: Boolean = true) : View(context) {
@@ -35,15 +35,60 @@ class OrbFaceView(context: Context, private val animated: Boolean = true) : View
         set(value) { field = value; invalidate() }
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val power = context.getSystemService(PowerManager::class.java)
+    private val leftLeaf = Path().apply {
+        moveTo(35f, 19f)
+        cubicTo(19f, 19f, 10f, 10f, 13f, 3f)
+        cubicTo(26f, 3f, 33f, 10f, 35f, 19f)
+        close()
+    }
+    private val rightLeaf = Path().apply {
+        moveTo(37f, 19f)
+        cubicTo(42f, 7f, 53f, 2f, 62f, 5f)
+        cubicTo(58f, 15f, 48f, 21f, 37f, 19f)
+        close()
+    }
+    private val seed = Path().apply {
+        moveTo(36f, 15f)
+        cubicTo(42f, 24f, 54f, 26f, 59f, 39f)
+        cubicTo(64f, 54f, 51f, 66f, 35f, 66f)
+        cubicTo(18f, 66f, 10f, 53f, 14f, 40f)
+        cubicTo(17f, 28f, 29f, 23f, 36f, 15f)
+        close()
+    }
+    private val star = Path().apply {
+        val points = Array(10) { i ->
+            val angle = -Math.PI / 2 + i * Math.PI / 5
+            val radius = if (i % 2 == 0) 33.0 else 23.0
+            Pair((36 + cos(angle) * radius).toFloat(), (37 + sin(angle) * radius).toFloat())
+        }
+        for (i in points.indices) {
+            val point = points[i]
+            val previous = points[(i + 9) % 10]
+            val next = points[(i + 1) % 10]
+            val softness = if (i % 2 == 0) .22f else .12f
+            val entryX = point.first + (previous.first - point.first) * softness
+            val entryY = point.second + (previous.second - point.second) * softness
+            val exitX = point.first + (next.first - point.first) * softness
+            val exitY = point.second + (next.second - point.second) * softness
+            if (i == 0) moveTo(entryX, entryY) else lineTo(entryX, entryY)
+            quadTo(point.first, point.second, exitX, exitY)
+        }
+        close()
+    }
+    private val starGradient = LinearGradient(17f, 5f, 57f, 68f,
+        intArrayOf(Color.rgb(255, 248, 211), Color.rgb(255, 221, 119), Color.rgb(255, 185, 81)),
+        null, Shader.TileMode.CLAMP)
     private var reaction: OrbReaction? = null
     private var reactionStarted = 0L
     private var reactionDirection = 1f
+    private var reactionVertical = false
 
-    fun react(next: OrbReaction, direction: Float = 1f) {
+    fun react(next: OrbReaction, direction: Float = 1f, vertical: Boolean = false) {
         if (paused || !animated) return
         reaction = next
         reactionStarted = SystemClock.uptimeMillis()
         reactionDirection = if (direction < 0f) -1f else 1f
+        reactionVertical = vertical
         invalidate()
     }
 
@@ -51,7 +96,13 @@ class OrbFaceView(context: Context, private val animated: Boolean = true) : View
         super.onDraw(canvas)
         val now = SystemClock.uptimeMillis()
         val currentReaction = reaction
-        val reactionDuration = if (currentReaction == OrbReaction.LOOK) 1600L else 1100L
+        val reactionDuration = when (currentReaction) {
+            OrbReaction.LOOK -> 1900L
+            OrbReaction.TAP -> 1300L
+            OrbReaction.SWIPE -> 1700L
+            OrbReaction.TYPE -> 2200L
+            else -> 700L
+        }
         val elapsed = now - reactionStarted
         val progress = if (currentReaction != null && elapsed in 0..reactionDuration) {
             elapsed.toFloat() / reactionDuration
@@ -64,15 +115,20 @@ class OrbFaceView(context: Context, private val animated: Boolean = true) : View
         canvas.scale(width / 72f, height / 72f)
         canvas.scale(breath, breath, 36f, 36f)
         if (currentReaction == OrbReaction.TAP && progress < 1f) {
-            canvas.translate(0f, -13f * sin(Math.PI * progress).toFloat())
+            canvas.translate(0f, -4f * sin(Math.PI * progress).toFloat())
         } else if (currentReaction == OrbReaction.SWIPE && progress < 1f) {
-            canvas.rotate(reactionDirection * 22f * sin(Math.PI * progress).toFloat(), 36f, 36f)
-            canvas.translate(reactionDirection * 5f * sin(Math.PI * progress).toFloat(), 0f)
+            val wave = sin(Math.PI * progress).toFloat()
+            canvas.rotate(reactionDirection * 8f * wave, 36f, 36f)
+            if (reactionVertical) canvas.translate(0f, reactionDirection * 3f * wave)
+            else canvas.translate(reactionDirection * 3f * wave, 0f)
         } else if (currentReaction == OrbReaction.TYPE && progress < 1f) {
-            canvas.translate(0f, -6f * sin(6 * Math.PI * progress).toFloat())
+            canvas.translate(0f, -3f * sin(12 * Math.PI * progress).toFloat())
         } else if (currentReaction == OrbReaction.LOOK && progress < 1f) {
-            val scanScale = 1f + .11f * sin(Math.PI * progress).toFloat()
+            val scanScale = 1f + .04f * sin(Math.PI * progress).toFloat()
             canvas.scale(scanScale, scanScale, 36f, 36f)
+        } else if (currentReaction == OrbReaction.KEY && progress < 1f) {
+            canvas.scale(1f + .025f * sin(Math.PI * progress).toFloat(),
+                1f - .025f * sin(Math.PI * progress).toFloat(), 36f, 36f)
         }
         when (character) {
             OrbCharacter.YUANYUAN -> {
@@ -89,31 +145,11 @@ class OrbFaceView(context: Context, private val animated: Boolean = true) : View
             }
             OrbCharacter.YAYA -> {
                 // Large leaf ears and a pointed seed body keep the silhouette recognizable.
-                val leftLeaf = Path().apply {
-                    moveTo(35f, 19f)
-                    cubicTo(19f, 19f, 10f, 10f, 13f, 3f)
-                    cubicTo(26f, 3f, 33f, 10f, 35f, 19f)
-                    close()
-                }
-                val rightLeaf = Path().apply {
-                    moveTo(37f, 19f)
-                    cubicTo(42f, 7f, 53f, 2f, 62f, 5f)
-                    cubicTo(58f, 15f, 48f, 21f, 37f, 19f)
-                    close()
-                }
                 paint.style = Paint.Style.FILL
                 paint.color = if (paused) Color.rgb(160, 175, 180) else Color.rgb(60, 177, 111)
                 canvas.drawPath(leftLeaf, paint)
                 paint.color = if (paused) Color.rgb(191, 204, 209) else Color.rgb(137, 225, 140)
                 canvas.drawPath(rightLeaf, paint)
-                val seed = Path().apply {
-                    moveTo(36f, 15f)
-                    cubicTo(42f, 24f, 54f, 26f, 59f, 39f)
-                    cubicTo(64f, 54f, 51f, 66f, 35f, 66f)
-                    cubicTo(18f, 66f, 10f, 53f, 14f, 40f)
-                    cubicTo(17f, 28f, 29f, 23f, 36f, 15f)
-                    close()
-                }
                 paint.color = if (paused) Color.rgb(165, 179, 190) else Color.rgb(83, 202, 146)
                 canvas.drawPath(seed, paint)
                 paint.style = Paint.Style.STROKE
@@ -126,30 +162,8 @@ class OrbFaceView(context: Context, private val animated: Boolean = true) : View
             }
             OrbCharacter.XINGZI -> {
                 // Keep the existing star proportions, with soft tips and a jelly highlight.
-                val points = ArrayList<Pair<Float, Float>>(10)
-                for (i in 0 until 10) {
-                    val angle = -Math.PI / 2 + i * Math.PI / 5
-                    val radius = if (i % 2 == 0) 33.0 else 23.0
-                    points.add(Pair((36 + cos(angle) * radius).toFloat(), (37 + sin(angle) * radius).toFloat()))
-                }
-                val star = Path()
-                for (i in points.indices) {
-                    val point = points[i]
-                    val previous = points[(i + 9) % 10]
-                    val next = points[(i + 1) % 10]
-                    val softness = if (i % 2 == 0) .22f else .12f
-                    val entryX = point.first + (previous.first - point.first) * softness
-                    val entryY = point.second + (previous.second - point.second) * softness
-                    val exitX = point.first + (next.first - point.first) * softness
-                    val exitY = point.second + (next.second - point.second) * softness
-                    if (i == 0) star.moveTo(entryX, entryY) else star.lineTo(entryX, entryY)
-                    star.quadTo(point.first, point.second, exitX, exitY)
-                }
-                star.close()
                 paint.style = Paint.Style.FILL
-                paint.shader = if (paused) null else LinearGradient(17f, 5f, 57f, 68f,
-                    intArrayOf(Color.rgb(255, 248, 211), Color.rgb(255, 221, 119), Color.rgb(255, 185, 81)),
-                    null, Shader.TileMode.CLAMP)
+                paint.shader = if (paused) null else starGradient
                 paint.color = if (paused) Color.rgb(165, 179, 190) else Color.WHITE
                 canvas.drawPath(star, paint)
                 paint.shader = null
@@ -208,6 +222,8 @@ class OrbFaceView(context: Context, private val animated: Boolean = true) : View
         }
         canvas.drawCircle(59f, 58f, 5f, paint)
         canvas.restore()
-        if (animated && !paused && power.isInteractive && isAttachedToWindow) postInvalidateDelayed(50L)
+        if (animated && !paused && power.isInteractive && isAttachedToWindow) {
+            if (reaction != null) postInvalidateOnAnimation() else postInvalidateDelayed(50L)
+        }
     }
 }

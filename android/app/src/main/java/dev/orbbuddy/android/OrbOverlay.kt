@@ -43,6 +43,8 @@ class OrbOverlay(
     private val touchSlop = ViewConfiguration.get(service).scaledTouchSlop
     private var orb: OrbFaceView? = null
     private var orbParams: WindowManager.LayoutParams? = null
+    private var effectView: OrbEffectView? = null
+    private var effectParams: WindowManager.LayoutParams? = null
     private var menu: LinearLayout? = null
     private var bubble: LinearLayout? = null
     private var bubbleTitle: TextView? = null
@@ -52,6 +54,7 @@ class OrbOverlay(
     private var menuMore = false
     private var receiverRegistered = false
     private var captureHidden = false
+    private var speaking = false
     private var paused = false
     private var connectionStatus = "连接中"
     private var apiActive = false
@@ -66,10 +69,15 @@ class OrbOverlay(
     private val autoPeek = Runnable { if (menu == null && !captureHidden) dock() }
     private val dismissMenu = Runnable { hideMenu(); schedulePeek() }
     private val dismissBubble = Runnable { hideBubble(); schedulePeek() }
+    private val dismissEffect = Runnable {
+        effectView?.clearWork()
+        if (!speaking) removeEffect()
+    }
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             orb?.invalidate()
+            effectView?.invalidate()
         }
     }
 
@@ -85,6 +93,11 @@ class OrbOverlay(
             this.character = OrbCharacter.from(prefs.getString("orb_character", null))
             contentDescription = "果冻悬浮球，${if (paused) "已暂停" else status}。点击打开控制菜单，拖动可移动"
             invalidate()
+        }
+        effectView?.connected = status == "已连接"
+        if (paused) {
+            speaking = false
+            removeEffect()
         }
         if (menu != null) {
             val more = menuMore
@@ -105,6 +118,7 @@ class OrbOverlay(
             hideMenu()
             captureHidden = true
             orb?.visibility = View.INVISIBLE
+            effectView?.visibility = View.INVISIBLE
             bubble?.visibility = View.INVISIBLE
         }
     }
@@ -113,12 +127,45 @@ class OrbOverlay(
         if (captureHidden) {
             captureHidden = false
             orb?.visibility = View.VISIBLE
+            effectView?.visibility = View.VISIBLE
             bubble?.visibility = View.VISIBLE
         }
     }
 
-    fun react(reaction: OrbReaction, direction: Float = 1f) {
-        if (!paused && !captureHidden) orb?.react(reaction, direction)
+    fun react(reaction: OrbReaction, direction: Float = 1f, vertical: Boolean = false) {
+        if (paused || captureHidden || orb == null) return
+        orb?.react(reaction, direction, vertical)
+        val work = when (reaction) {
+            OrbReaction.LOOK -> OrbWorkEffect.LOOK
+            OrbReaction.TAP -> OrbWorkEffect.TAP
+            OrbReaction.TYPE -> OrbWorkEffect.TYPE
+            OrbReaction.SWIPE -> when {
+                vertical && direction < 0 -> OrbWorkEffect.SWIPE_UP
+                vertical -> OrbWorkEffect.SWIPE_DOWN
+                direction < 0 -> OrbWorkEffect.SWIPE_LEFT
+                else -> OrbWorkEffect.SWIPE_RIGHT
+            }
+            OrbReaction.KEY -> null
+        } ?: return
+        reveal()
+        ensureEffect()?.play(work)
+        handler.removeCallbacks(dismissEffect)
+        handler.postDelayed(dismissEffect, work.durationMs + OrbWorkEffect.DONE_HOLD_MS + 50L)
+        schedulePeek()
+    }
+
+    /** Voice playback calls this independently of work actions. */
+    fun setSpeaking(active: Boolean) {
+        speaking = active && !paused && orb != null
+        if (speaking) {
+            reveal()
+            handler.removeCallbacks(autoPeek)
+            ensureEffect()?.speaking = true
+        } else {
+            effectView?.speaking = false
+            if (effectView?.hasWork() != true) removeEffect()
+            schedulePeek()
+        }
     }
 
     fun beginRemoteAction(id: String, label: String) {
@@ -196,6 +243,8 @@ class OrbOverlay(
     private fun hide() {
         handler.removeCallbacks(autoPeek)
         handler.removeCallbacks(dismissBubble)
+        speaking = false
+        removeEffect()
         positionAnimator?.cancel()
         positionAnimator = null
         activeRemoteLabel = null
@@ -231,8 +280,10 @@ class OrbOverlay(
                 if (dragging) {
                     val screen = displaySize()
                     params.x = (startX + event.rawX - downX).toInt().coerceIn(-size + visiblePart, (screen.x - visiblePart).coerceAtLeast(0))
-                    params.y = (startY + event.rawY - downY).toInt().coerceIn(0, (screen.y - size).coerceAtLeast(0))
+                    params.y = (startY + event.rawY - downY).toInt()
+                        .coerceIn(edge, (screen.y - size - edge).coerceAtLeast(edge))
                     orb?.let { manager.updateViewLayout(it, params) }
+                    syncEffectPosition()
                     hideMenu()
                     hideBubble()
                 }
@@ -242,14 +293,14 @@ class OrbOverlay(
                 val endedAway = abs(event.rawX - downX) > touchSlop || abs(event.rawY - downY) > touchSlop
                 if (dragging && endedAway && event.eventTime - downAt >= 100L) {
                     val screen = displaySize()
-                    params.x = expandedX(params.x + size / 2 < screen.x / 2, screen)
-                    orb?.let { manager.updateViewLayout(it, params) }
-                    prefs.edit().putInt("orb_x", params.x).putInt("orb_y", params.y).apply()
+                    val left = params.x + size / 2 < screen.x / 2
+                    prefs.edit().putInt("orb_x", expandedX(left, screen)).putInt("orb_y", params.y).apply()
                     dock()
                 } else {
                     params.x = startX
                     params.y = startY
                     orb?.let { manager.updateViewLayout(it, params) }
+                    syncEffectPosition()
                     toggleMenu()
                 }
                 return true
@@ -431,6 +482,7 @@ class OrbOverlay(
             addUpdateListener {
                 params.x = it.animatedValue as Int
                 runCatching { manager.updateViewLayout(view, params) }
+                syncEffectPosition()
             }
             start()
         }
@@ -450,7 +502,58 @@ class OrbOverlay(
 
     private fun schedulePeek() {
         handler.removeCallbacks(autoPeek)
-        if (orb != null && menu == null) handler.postDelayed(autoPeek, 4200L)
+        if (orb != null && menu == null && !speaking) handler.postDelayed(autoPeek, 4200L)
+    }
+
+    private fun ensureEffect(): OrbEffectView? {
+        effectView?.let { return it }
+        if (orbParams == null) return null
+        val view = OrbEffectView(service).apply {
+            connected = connectionStatus == "已连接"
+            speaking = this@OrbOverlay.speaking
+            if (captureHidden) visibility = View.INVISIBLE
+        }
+        val params = layoutParams(dp(90), dp(108), 0, 0).apply {
+            flags = flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+        }
+        effectView = view
+        effectParams = params
+        positionEffectParams()
+        return try {
+            manager.addView(view, params)
+            view
+        } catch (e: RuntimeException) {
+            effectView = null
+            effectParams = null
+            Log.w("JellyHere", "cannot show orb work effect", e)
+            null
+        }
+    }
+
+    private fun positionEffectParams() {
+        val orbPosition = orbParams ?: return
+        val params = effectParams ?: return
+        params.x = orbPosition.x - dp(9)
+        params.y = orbPosition.y - dp(12)
+    }
+
+    private fun syncEffectPosition() {
+        val view = effectView ?: return
+        val params = effectParams ?: return
+        val oldX = params.x
+        val oldY = params.y
+        positionEffectParams()
+        if (params.x != oldX || params.y != oldY) {
+            runCatching { manager.updateViewLayout(view, params) }
+        }
+    }
+
+    private fun removeEffect() {
+        handler.removeCallbacks(dismissEffect)
+        effectView?.let { runCatching { manager.removeView(it) } }
+        effectView = null
+        effectParams = null
     }
 
     private fun showBubble(title: String, detail: String, durationMs: Long) {
