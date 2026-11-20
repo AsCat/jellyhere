@@ -18,14 +18,14 @@ go build -o jellyhere-server ./cmd/jellyhere-server
 
 ## 2. 安装 Android App
 
-在 `android/` 用 Android Studio 构建，或运行：
+可从 [v0.5.5 Release](https://github.com/AsCat/jellyhere/releases/tag/v0.5.5) 下载维护者固定签名的 `jellyhere-android-0.5.5.apk`，并用同页 `checksums.sha256` 核对文件。若要自行构建调试包，在 `android/` 用 Android Studio 构建，或运行：
 
 ```bash
 cd android
 ./gradlew :app:assembleDebug
 ```
 
-安装 `app/build/outputs/apk/debug/app-debug.apk`。GitHub Actions 的 `jellyhere-android-debug-apk` 构建产物也可用于首次试装；每次 CI 的调试签名可能不同，不能保证覆盖安装上一轮 CI 包。长期使用请用自己保管的固定签名构建。不要将设备令牌放入 APK 或 Git 仓库。
+安装 `app/build/outputs/apk/debug/app-debug.apk`。GitHub Actions 的 `jellyhere-android-debug-apk` 构建产物也可用于首次试装；每次 CI 的调试签名可能不同，不能保证覆盖安装上一轮 CI 包。调试签名包不能直接由维护者的正式 APK 覆盖，切换前需备份连接信息，卸载旧包后重新配置。长期自行发布请用自己保管的固定签名构建。不要将设备令牌放入 APK 或 Git 仓库。
 
 在手机中打开果冻，填入 WSS 地址、唯一设备 ID 和设备令牌，点击“保存并连接”，再手动启用果冻无障碍服务。单机可用 `primary`；两台手机可设为 `xiaomi` 与 `samsung`，或保留既有小米的 `primary` 并将三星设为 `samsung`。同一 ID 的新连接会替换旧连接。Android 13+ 允许会话通知，并按设备需要调整后台运行设置。小米澎湃 OS 的实机验证还需允许自启动与通知、设置省电策略为“无限制”。会话开启后，前台通知会常驻；停止会话会释放部分唤醒锁。
 

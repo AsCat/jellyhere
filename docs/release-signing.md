@@ -12,6 +12,6 @@
 
 维护者在 macOS 执行 `./scripts/build-android-release.sh`，脚本从钥匙串读取口令，构建、用 `apksigner` 验证签名并打印 APK SHA-256。其他开发者也可用自己的 PKCS#12 keystore：设置 `JELLYHERE_RELEASE_KEYSTORE` 和 `JELLYHERE_RELEASE_STORE_PASSWORD`（旧 `ORBBUDDY_*` 仍可用），别名必须为 `orbbuddy-release`。不同签名的 APK 不能覆盖维护者的正式 APK。
 
-首个正式 Release 发布前还需核对版本号、准备变更说明、按源码 tag 构建、上传 APK 与校验值，并在至少一台手机上完成从上一正式版的覆盖升级和回滚演练。GitHub 的[Release 文档](https://docs.github.com/en/repositories/releasing-projects-on-github)说明了 tag、发布资源与发行说明的关系。
+首个公开预览版 `v0.5.5` 提供正式签名 APK 和校验值；三星 SM-F936U 已安装与站点分发文件逐字节相同的 APK。小米当前是同版本的调试签名包，不能作为正式版覆盖升级样本。下一次发布前仍须在至少一台手机上验证从上一正式版的覆盖升级和回滚演练。GitHub 的[Release 文档](https://docs.github.com/en/repositories/releasing-projects-on-github)说明了 tag、发布资源与发行说明的关系。
 
-Go 服务的 Linux amd64/arm64 发布候选包可运行 `./scripts/build-server-release.sh` 构建，结果和 `checksums.sha256` 写入 Git 忽略的 `dist/`。发布前应在对应架构的 Linux 环境启动并验证 `/healthz`；仅交叉编译成功不代表已通过运行时验收。当前源码的 APK 版本为 `0.5.5`，这些本机构建物尚不是公开 GitHub Release。
+Go 服务的 Linux amd64/arm64 发布候选包可运行 `./scripts/build-server-release.sh` 构建，结果和 `checksums.sha256` 写入 Git 忽略的 `dist/`。Linux amd64 包已在独立本机端口启动并通过 `/healthz`；arm64 包尚未做对应架构的运行时验收。当前源码的 APK 版本为 `0.5.5`。

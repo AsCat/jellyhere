@@ -1,8 +1,10 @@
 # Changelog
 
-This file records changes from the first public preview onward. Until a tagged release exists, the work below is unreleased.
+This file records changes from the first public preview onward.
 
 ## Unreleased
+
+## 0.5.5 — 2026-11-20 (public preview)
 
 - Redesign the JellyHub login and device dashboard with responsive cards, visible device counts, online status, and a separate add-device flow; add a managed-console shortcut to the Android floating menu.
 - Include the AndroidX runtime classes required by the QR scanner, fixing a launch crash on Samsung.
@@ -25,3 +27,5 @@ This file records changes from the first public preview onward. Until a tagged r
 - Optional compact MCP screen tree with original element paths and bounds to reduce text sent to agents.
 - Explicit lock-state query and bounded screen-wake request; secure device authentication remains on the phone.
 - Explicit temporary keep-screen-on testing session, with a 30-minute cap and local notification stop action.
+- WorkBuddy OAuth connector with explicit device and permission selection; the connector is distributed through the WorkBuddy market.
+- Optional direct App launch by package name and structured service-side task timing to help diagnose slow multi-step runs.
