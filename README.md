@@ -8,7 +8,7 @@ JellyHere 让 Codex 等通用智能体按需理解手机屏幕、读取界面元
 
 [快速开始](docs/quickstart.md) · [真实场景](docs/use-cases/README.md) · [自托管](docs/self-host.md) · [MCP 接入](docs/client-setup.md) · [WorkBuddy 连接器](docs/workbuddy-connector-plan.md) · [CLI 与无线调试](docs/shortcuts.md) · [路线图](docs/roadmap.md)
 
-首个公开预览版：[v0.5.5 下载 Android APK 和 Linux 服务端](https://github.com/AsCat/jellyhere/releases/tag/v0.5.5)。Android APK 使用固定发布签名；从自行构建的调试签名包切换时需要先卸载旧包，原应用数据不会保留。
+当前公开预览版：[v0.5.6 下载 Android APK 和 Linux 服务端](https://github.com/AsCat/jellyhere/releases/tag/v0.5.6)。Android APK 使用固定发布签名；从自行构建的调试签名包切换时需要先卸载旧包，原应用数据不会保留。
 
 WorkBuddy 的 **JellyHere / 果冻连接器已通过审核并发布**。想直接试用，可先在 [JellyHub 托管站点](https://jellyhub.yuanxuyinli.com/)安装 Android App、扫码绑定设备，再到 WorkBuddy 连接器市场搜索 JellyHere 并完成设备授权。[查看具体步骤](docs/workbuddy-connector-plan.md#使用已发布的连接器)
 

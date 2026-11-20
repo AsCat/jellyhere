@@ -18,7 +18,7 @@ go build -o jellyhere-server ./cmd/jellyhere-server
 
 ## 2. 安装 Android App
 
-可从 [v0.5.5 Release](https://github.com/AsCat/jellyhere/releases/tag/v0.5.5) 下载维护者固定签名的 `jellyhere-android-0.5.5.apk`，并用同页 `checksums.sha256` 核对文件。若要自行构建调试包，在 `android/` 用 Android Studio 构建，或运行：
+可从 [v0.5.6 Release](https://github.com/AsCat/jellyhere/releases/tag/v0.5.6) 下载维护者固定签名的 `jellyhere-android-0.5.6.apk`，并用同页 `checksums.sha256` 核对文件。若要自行构建调试包，在 `android/` 用 Android Studio 构建，或运行：
 
 ```bash
 cd android

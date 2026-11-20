@@ -4,7 +4,10 @@ This file records changes from the first public preview onward.
 
 ## Unreleased
 
+## 0.5.6 — 2026-11-20 (public preview)
+
 - Unify the JellyHere brand icon around the warm yellow star mascot on fresh blue across Android launcher and notification, WorkBuddy connector package, and JellyHub web surfaces.
+- Default fresh Android installations to the star mascot while preserving the user's existing mascot choice.
 
 ## 0.5.5 — 2026-11-20 (public preview)
 
