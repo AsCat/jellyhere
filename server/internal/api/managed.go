@@ -416,7 +416,7 @@ func (s *managedService) client(r *http.Request) (managedPrincipal, bool) {
 		}
 	}
 	for _, grant := range s.state.OAuthGrants {
-		if grant.AccessHash != hash || time.Now().Unix() >= grant.AccessExpires {
+		if grant.AccessHash != hash || time.Now().Unix() >= grant.AccessExpires || (grant.EndsAt > 0 && time.Now().Unix() >= grant.EndsAt) {
 			continue
 		}
 		tenant, exists := s.state.Tenants[grant.TenantID]
@@ -547,7 +547,7 @@ func (s *managedService) tenantInfo(w http.ResponseWriter, r *http.Request) {
 	oauthGrants := make(map[string]managedOAuthGrant)
 	oauthClients := make(map[string]managedOAuthClient)
 	for grantID, grant := range s.state.OAuthGrants {
-		if grant.TenantID == id && time.Now().Unix() < grant.RefreshExpires {
+		if grant.TenantID == id && time.Now().Unix() < grant.RefreshExpires && (grant.EndsAt == 0 || time.Now().Unix() < grant.EndsAt) {
 			oauthGrants[grantID] = grant
 			oauthClients[grant.ClientID] = s.state.OAuthClients[grant.ClientID]
 		}
@@ -586,7 +586,11 @@ func (s *managedService) tenantInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	connections := make([]oauthView, 0, len(oauthGrants))
 	for grantID, grant := range oauthGrants {
-		connections = append(connections, oauthView{grantID, oauthClients[grant.ClientID].Name, grant.Scope, grant.DeviceIDs, grant.RefreshExpires})
+		expires := grant.RefreshExpires
+		if grant.EndsAt > 0 {
+			expires = min(expires, grant.EndsAt)
+		}
+		connections = append(connections, oauthView{grantID, oauthClients[grant.ClientID].Name, grant.Scope, grant.DeviceIDs, expires})
 	}
 	sort.Slice(connections, func(i, j int) bool { return connections[i].ID < connections[j].ID })
 	jsonResponse(w, 200, map[string]any{"tenant_id": id, "devices": devices, "clients": clients, "oauth_connections": connections})

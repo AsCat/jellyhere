@@ -20,6 +20,14 @@ tool_timeout_sec = 30
 
 WorkBuddy 使用已发布的 [JellyHere 连接器](workbuddy-connector-plan.md#使用已发布的连接器)即可通过 JellyHub OAuth 连接；其他支持远程 Streamable HTTP MCP 的客户端可填写自托管 URL 和 Bearer 令牌。若客户端只支持 stdio，需要一个本地 stdio 转发适配器；该适配器尚未纳入 MVP。不能仅凭产品名称推断其 MCP 兼容性。
 
+## ChatGPT 临时控制授权
+
+JellyHub 支持将 ChatGPT 注册为 OAuth MCP 客户端。无需从 `jellyhere` CLI 复制长期令牌。首次接入请在 ChatGPT 网页端的 Plugins 中添加自定义 MCP 服务器，地址为你的 JellyHub 实例 `/mcp`，选择 OAuth 动态客户端注册（DCR），请求 `device.read` 和 `device.control`。ChatGPT 会打开 JellyHub 登录与授权页；选择要给它操作的手机，控制权限已默认勾选。该授权最长 2 小时，到期需要重新授权；刷新令牌不能延长时限。也可随时在 JellyHub 控制台的“已授权连接”中撤销。
+
+授权后，ChatGPT 可使用 `get_screen`、`tap`、`swipe`、`input_text` 等 MCP 工具。两台以上设备在线时，在请求中明确说设备名，并让工具传 `deviceId`。手机端“暂停”仍会拒绝操作。涉及支付、下单、发送消息等不可轻易撤回的步骤，应在最终确认前停下让用户核对。
+
+ChatGPT 的自定义 MCP 插件需先在网页端创建；能否在手机端、特定语音会话中使用，取决于当前账号、工作区和客户端对插件与语音的支持。先在普通聊天中完成授权并验证读屏及控制工具，再用 ChatGPT App 的 Live Voice 测试。此流程不会把临时凭据写入 CLI 配置。官方参考：[添加自定义 MCP 服务器](https://developers.openai.com/api/docs/guides/custom-mcp-server)、[插件 OAuth 鉴权](https://developers.openai.com/plugins/build/auth)、[插件可用界面](https://learn.chatgpt.com/docs/plugins)、[语音功能](https://learn.chatgpt.com/docs/features/voice)。
+
 先调用 `device_status`，确认目标设备在线且 `paused` 为 `false`。多台手机在线时，所有读屏和操作工具都要显式传 `deviceId`，例如 `primary` 或 `samsung`；省略时会返回歧义错误。手机端暂停时，所有读屏和操作命令会被拒绝，用户需在手机 App 或悬浮球上恢复。界面树有 `path` 和 `revision`，元素操作优先使用 `tap_element`；修订号过期时重新读屏。只判断文字或控件状态时用 `get_screen` 的 `includeImage=false` 和 `treeMode="compact"`；精简结果返回 `elements` 平铺列表，每项的 `path` 仍可传给 `tap_element`，`bounds` 为原始像素 `[left,top,right,bottom]`。需要视觉判断时才取图片，可设 `maxImageEdge=640` 等较小尺寸。默认仍是完整界面树和最长边 1280 像素、JPEG 质量 70 的图片。若目标 App 的包名已知且当前不在该 App，可用控制工具 `launch_app` 直接打开，再重新读屏；包名不确定时不要猜测。
 
 屏幕没有节点时先调用 `get_lock_state`。若 `interactive=false`，可显式调用 `wake_screen`，再查看返回的 `interactive` 与 `deviceLocked`；设备需要系统认证时请让用户在手机上解锁，再重试读屏。`wake_screen` 只请求唤亮，不输入 PIN，也不保证各厂商系统都会响应。它属于操作工具；`get_lock_state` 是只读工具。

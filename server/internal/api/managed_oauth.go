@@ -21,6 +21,7 @@ const (
 	oauthControlScope = "device.read device.control"
 	accessLifetime    = time.Hour
 	refreshLifetime   = 30 * 24 * time.Hour
+	chatGPTLifetime   = 2 * time.Hour
 )
 
 type managedOAuthClient struct {
@@ -46,6 +47,7 @@ type managedOAuthGrant struct {
 	AccessExpires  int64    `json:"access_expires"`
 	RefreshHash    string   `json:"refresh_hash"`
 	RefreshExpires int64    `json:"refresh_expires"`
+	EndsAt         int64    `json:"ends_at,omitempty"` // Absolute expiry for temporary grants.
 }
 type managedOAuthConsent struct {
 	SessionHash    string
@@ -61,6 +63,23 @@ type managedOAuthConsent struct {
 }
 
 func oauthScopeValid(scope string) bool { return scope == oauthReadScope || scope == oauthControlScope }
+func oauthNormalizeScope(raw string) string {
+	fields := strings.Fields(raw)
+	if len(fields) == 0 || len(fields) > 2 {
+		return ""
+	}
+	seen := map[string]bool{}
+	for _, scope := range fields {
+		if (scope != "device.read" && scope != "device.control") || seen[scope] {
+			return ""
+		}
+		seen[scope] = true
+	}
+	if seen["device.control"] {
+		return oauthControlScope
+	}
+	return oauthReadScope
+}
 func oauthHashValid(hash string) bool {
 	_, err := hex.DecodeString(hash)
 	return len(hash) == 64 && err == nil
@@ -75,12 +94,49 @@ func oauthRedirectValid(raw string) bool {
 		return false
 	}
 	host := strings.ToLower(u.Hostname())
+	if host == "chatgpt.com" && u.RawQuery == "" {
+		if u.Path == "/connector_platform_oauth_redirect" {
+			return true
+		}
+		const prefix = "/connector/oauth/"
+		if strings.HasPrefix(u.Path, prefix) {
+			id := strings.TrimPrefix(u.Path, prefix)
+			if id != "" && !strings.Contains(id, "/") {
+				for _, c := range id {
+					if !(c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-' || c == '_') {
+						return false
+					}
+				}
+				return true
+			}
+		}
+		return false
+	}
 	for _, suffix := range []string{".workbuddy.cn", ".codebuddy.cn", ".workbuddy.ai"} {
 		if strings.HasSuffix(host, suffix) && len(host) > len(suffix) {
 			return true
 		}
 	}
 	return host == "copilot.tencent.com" || host == "staging-codebuddy.tencent.com"
+}
+func oauthClientName(name string, redirects []string) (string, bool) {
+	if len(redirects) == 0 {
+		return "", false
+	}
+	if name == "WorkBuddy Connector" || name == "CodeBuddy" {
+		for _, redirect := range redirects {
+			if !oauthRedirectValid(redirect) || strings.HasPrefix(redirect, "https://chatgpt.com/") {
+				return "", false
+			}
+		}
+		return name, true
+	}
+	for _, redirect := range redirects {
+		if !oauthRedirectValid(redirect) || !strings.HasPrefix(redirect, "https://chatgpt.com/") {
+			return "", false
+		}
+	}
+	return "ChatGPT", true
 }
 func oauthChallengeValid(v string) bool {
 	if len(v) < 43 || len(v) > 128 {
@@ -111,7 +167,8 @@ func validateManagedOAuthState(state managedState) error {
 		return errors.New("too many OAuth records")
 	}
 	for id, client := range state.OAuthClients {
-		if !validDeviceID.MatchString(id) || (client.Name != "WorkBuddy Connector" && client.Name != "CodeBuddy") || len(client.RedirectURIs) == 0 || len(client.RedirectURIs) > 10 || client.CreatedAt <= 0 {
+		name, valid := oauthClientName(client.Name, client.RedirectURIs)
+		if !validDeviceID.MatchString(id) || !valid || name != client.Name || len(client.RedirectURIs) > 10 || client.CreatedAt <= 0 {
 			return errors.New("invalid OAuth client")
 		}
 		seen := map[string]bool{}
@@ -130,7 +187,7 @@ func validateManagedOAuthState(state managedState) error {
 	}
 	seenTokens := map[string]bool{}
 	for id, grant := range state.OAuthGrants {
-		if !validDeviceID.MatchString(id) || state.OAuthClients[grant.ClientID].Name == "" || !oauthScopeValid(grant.Scope) || !oauthDevicesValid(grant.DeviceIDs, state.Tenants[grant.TenantID]) || !oauthHashValid(grant.AccessHash) || !oauthHashValid(grant.RefreshHash) || grant.AccessExpires <= 0 || grant.RefreshExpires <= 0 || seenTokens[grant.AccessHash] || seenTokens[grant.RefreshHash] {
+		if !validDeviceID.MatchString(id) || state.OAuthClients[grant.ClientID].Name == "" || !oauthScopeValid(grant.Scope) || !oauthDevicesValid(grant.DeviceIDs, state.Tenants[grant.TenantID]) || !oauthHashValid(grant.AccessHash) || !oauthHashValid(grant.RefreshHash) || grant.AccessExpires <= 0 || grant.RefreshExpires <= 0 || (grant.EndsAt > 0 && (grant.AccessExpires > grant.EndsAt || grant.RefreshExpires > grant.EndsAt)) || (state.OAuthClients[grant.ClientID].Name == "ChatGPT" && grant.EndsAt == 0) || seenTokens[grant.AccessHash] || seenTokens[grant.RefreshHash] {
 			return errors.New("invalid OAuth grant")
 		}
 		seenTokens[grant.AccessHash], seenTokens[grant.RefreshHash] = true, true
@@ -181,8 +238,13 @@ func (s *managedService) oauthRegister(w http.ResponseWriter, r *http.Request) {
 		ResponseTypes []string `json:"response_types"`
 		TokenAuth     string   `json:"token_endpoint_auth_method"`
 	}
-	if r.ContentLength > 8192 || json.NewDecoder(io.LimitReader(r.Body, 8193)).Decode(&in) != nil || (in.ClientName != "WorkBuddy Connector" && in.ClientName != "CodeBuddy") || len(in.RedirectURIs) == 0 || len(in.RedirectURIs) > 10 || (in.TokenAuth != "" && in.TokenAuth != "none") {
+	if r.ContentLength > 8192 || json.NewDecoder(io.LimitReader(r.Body, 8193)).Decode(&in) != nil || len(in.RedirectURIs) == 0 || len(in.RedirectURIs) > 10 || (in.TokenAuth != "" && in.TokenAuth != "none") {
 		oauthError(w, 400, "invalid_client_metadata", "unsupported client metadata")
+		return
+	}
+	clientName, valid := oauthClientName(in.ClientName, in.RedirectURIs)
+	if !valid {
+		oauthError(w, 400, "invalid_client_metadata", "unsupported client or redirect")
 		return
 	}
 	for _, v := range in.GrantTypes {
@@ -200,7 +262,7 @@ func (s *managedService) oauthRegister(w http.ResponseWriter, r *http.Request) {
 	seen := map[string]bool{}
 	for _, uri := range in.RedirectURIs {
 		if !oauthRedirectValid(uri) || seen[uri] {
-			oauthError(w, 400, "invalid_redirect_uri", "redirect must be a WorkBuddy callback")
+			oauthError(w, 400, "invalid_redirect_uri", "unsupported OAuth callback")
 			return
 		}
 		seen[uri] = true
@@ -214,32 +276,36 @@ func (s *managedService) oauthRegister(w http.ResponseWriter, r *http.Request) {
 		if len(state.OAuthClients) >= maxOAuthClients {
 			return managedFailure{429, "client_limit", "registration limit reached"}
 		}
-		state.OAuthClients[id] = managedOAuthClient{in.ClientName, in.RedirectURIs, created}
+		state.OAuthClients[id] = managedOAuthClient{clientName, in.RedirectURIs, created}
 		return nil
 	}); err != nil {
 		managedError(w, err)
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	jsonResponse(w, 201, map[string]any{"client_id": id, "client_id_issued_at": created, "client_name": in.ClientName, "redirect_uris": in.RedirectURIs, "grant_types": []string{"authorization_code", "refresh_token"}, "response_types": []string{"code"}, "token_endpoint_auth_method": "none"})
+	jsonResponse(w, 201, map[string]any{"client_id": id, "client_id_issued_at": created, "client_name": clientName, "redirect_uris": in.RedirectURIs, "grant_types": []string{"authorization_code", "refresh_token"}, "response_types": []string{"code"}, "token_endpoint_auth_method": "none"})
 }
 func (s *managedService) oauthAuthorizeParams(r *http.Request) (managedOAuthConsent, error) {
 	q := r.URL.Query()
 	clientID := q.Get("client_id")
 	redirect := q.Get("redirect_uri")
-	scope := strings.Join(strings.Fields(q.Get("scope")), " ")
+	requestedScope := q.Get("scope")
+	scope := oauthNormalizeScope(requestedScope)
 	challenge := q.Get("code_challenge")
 	state := q.Get("state")
 	s.mu.RLock()
 	client := s.state.OAuthClients[clientID]
 	s.mu.RUnlock()
+	if client.Name == "ChatGPT" && strings.TrimSpace(requestedScope) == "" {
+		scope = oauthControlScope
+	}
 	if client.Name == "" || !containsString(client.RedirectURIs, redirect) || q.Get("response_type") != "code" || q.Get("code_challenge_method") != "S256" || !oauthChallengeValid(challenge) || !oauthScopeValid(scope) || len(state) > 512 || (q.Get("resource") != "" && q.Get("resource") != s.publicURL+"/mcp") {
 		return managedOAuthConsent{}, errors.New("invalid authorization request")
 	}
 	return managedOAuthConsent{ClientID: clientID, RedirectURI: redirect, Challenge: challenge, Scope: scope, State: state}, nil
 }
 
-var oauthConsentHTML = template.Must(template.New("consent").Parse(`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>授权连接 · JellyHere</title><style>body{font:16px system-ui;background:#f6f8fc;color:#202c46;max-width:560px;margin:6vh auto;padding:20px}main{background:white;border:1px solid #e3e8f0;border-radius:22px;padding:32px;box-shadow:0 12px 40px #202c4610}h1{font-size:25px}p{line-height:1.6;color:#526179}.device{display:block;padding:12px;border:1px solid #dce3ee;border-radius:12px;margin:10px 0}button{border:0;border-radius:10px;padding:12px 18px;cursor:pointer;background:#4677e8;color:white;font-weight:650}.deny{background:#edf1f8;color:#34435c}small{color:#65748b}</style><main><small>JellyHere · 连接授权</small><h1>允许 {{.ClientName}} 访问设备？</h1><p>当前设备已默认勾选；可取消不想授权的设备。新设备不会自动加入已有授权。</p><form method="post" action="/oauth/authorize"><input type="hidden" name="consent" value="{{.Nonce}}">{{range .Devices}}<label class="device"><input type="checkbox" name="device_id" value="{{.}}" checked> {{.}}</label>{{else}}<p>当前空间还没有设备，请先添加设备。</p>{{end}}{{if .ControlRequested}}<p>选择权限：</p><label class="device"><input type="radio" name="scope" value="device.read" checked> 仅查看屏幕、设备状态与应用信息</label><label class="device"><input type="radio" name="scope" value="device.read device.control"> 查看并操作手机（点击、滑动、输入等）</label>{{else}}<p>权限：仅查看屏幕、设备状态与应用信息。</p>{{end}}<p><button name="decision" value="allow" {{if not .Devices}}disabled{{end}}>授权所选设备</button> <button class="deny" name="decision" value="deny">取消</button></p></form><small>授权后可随时在 JellyHub 控制台撤销。</small></main></html>`))
+var oauthConsentHTML = template.Must(template.New("consent").Parse(`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>授权连接 · JellyHere</title><style>body{font:16px system-ui;background:#f6f8fc;color:#202c46;max-width:560px;margin:6vh auto;padding:20px}main{background:white;border:1px solid #e3e8f0;border-radius:22px;padding:32px;box-shadow:0 12px 40px #202c4610}h1{font-size:25px}p{line-height:1.6;color:#526179}.device{display:block;padding:12px;border:1px solid #dce3ee;border-radius:12px;margin:10px 0}button{border:0;border-radius:10px;padding:12px 18px;cursor:pointer;background:#4677e8;color:white;font-weight:650}.deny{background:#edf1f8;color:#34435c}small{color:#65748b}</style><main><small>JellyHere · 连接授权</small><h1>允许 {{.ClientName}} 访问设备？</h1><p>当前设备已默认勾选；可取消不想授权的设备。新设备不会自动加入已有授权。</p>{{if .Temporary}}<p>此授权将在 2 小时后自动失效，也可随时在控制台撤销。</p>{{end}}<form method="post" action="/oauth/authorize"><input type="hidden" name="consent" value="{{.Nonce}}">{{range .Devices}}<label class="device"><input type="checkbox" name="device_id" value="{{.}}" checked> {{.}}</label>{{else}}<p>当前空间还没有设备，请先添加设备。</p>{{end}}{{if .ControlRequested}}<p>选择权限：</p><label class="device"><input type="radio" name="scope" value="device.read" {{if not .ControlDefault}}checked{{end}}> 仅查看屏幕、设备状态与应用信息</label><label class="device"><input type="radio" name="scope" value="device.read device.control" {{if .ControlDefault}}checked{{end}}> 查看并操作手机（点击、滑动、输入等）</label>{{else}}<p>权限：仅查看屏幕、设备状态与应用信息。</p>{{end}}<p><button name="decision" value="allow" {{if not .Devices}}disabled{{end}}>授权所选设备</button> <button class="deny" name="decision" value="deny">取消</button></p></form><small>授权后可随时在 JellyHub 控制台撤销。</small></main></html>`))
 
 func (s *managedService) oauthAuthorizePage(w http.ResponseWriter, r *http.Request) {
 	if s.publicURL == "" {
@@ -300,7 +366,7 @@ func (s *managedService) oauthAuthorizePage(w http.ResponseWriter, r *http.Reque
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = oauthConsentHTML.Execute(w, map[string]any{"ClientName": client.Name, "ControlRequested": pending.Scope == oauthControlScope, "Nonce": nonce, "Devices": ids})
+	_ = oauthConsentHTML.Execute(w, map[string]any{"ClientName": client.Name, "ControlRequested": pending.Scope == oauthControlScope, "ControlDefault": client.Name == "ChatGPT", "Temporary": client.Name == "ChatGPT", "Nonce": nonce, "Devices": ids})
 }
 func oauthRedirect(w http.ResponseWriter, r *http.Request, redirect, state, code, value string) {
 	u, _ := url.Parse(redirect)
@@ -430,6 +496,7 @@ func (s *managedService) oauthToken(w http.ResponseWriter, r *http.Request) {
 	}
 	var access, refresh string
 	var scope string
+	expiresIn := int(accessLifetime.Seconds())
 	var err error
 	switch r.PostForm.Get("grant_type") {
 	case "authorization_code":
@@ -466,7 +533,7 @@ func (s *managedService) oauthToken(w http.ResponseWriter, r *http.Request) {
 			}
 			now := time.Now().Unix()
 			for k, v := range st.OAuthGrants {
-				if v.RefreshExpires <= now {
+				if v.RefreshExpires <= now || (v.EndsAt > 0 && v.EndsAt <= now) {
 					delete(st.OAuthGrants, k)
 				}
 			}
@@ -475,7 +542,12 @@ func (s *managedService) oauthToken(w http.ResponseWriter, r *http.Request) {
 			}
 			id := "grant_" + requestID()[:24]
 			scope = entry.Scope
-			st.OAuthGrants[id] = managedOAuthGrant{clientID, entry.TenantID, scope, entry.DeviceIDs, tokenHash(access), time.Now().Add(accessLifetime).Unix(), tokenHash(refresh), time.Now().Add(refreshLifetime).Unix()}
+			grant := managedOAuthGrant{ClientID: clientID, TenantID: entry.TenantID, Scope: scope, DeviceIDs: entry.DeviceIDs, AccessHash: tokenHash(access), AccessExpires: now + int64(accessLifetime.Seconds()), RefreshHash: tokenHash(refresh), RefreshExpires: now + int64(refreshLifetime.Seconds())}
+			if st.OAuthClients[clientID].Name == "ChatGPT" {
+				grant.EndsAt = now + int64(chatGPTLifetime.Seconds())
+				grant.RefreshExpires = grant.EndsAt
+			}
+			st.OAuthGrants[id] = grant
 			return nil
 		})
 	case "refresh_token":
@@ -499,13 +571,19 @@ func (s *managedService) oauthToken(w http.ResponseWriter, r *http.Request) {
 				if grant.RefreshHash != tokenHash(old) {
 					continue
 				}
-				if grant.ClientID != clientID || grant.RefreshExpires <= time.Now().Unix() || !oauthDevicesValid(grant.DeviceIDs, st.Tenants[grant.TenantID]) {
+				now := time.Now().Unix()
+				if grant.ClientID != clientID || grant.RefreshExpires <= now || (grant.EndsAt > 0 && grant.EndsAt <= now) || !oauthDevicesValid(grant.DeviceIDs, st.Tenants[grant.TenantID]) {
 					return managedFailure{400, "invalid_grant", "refresh token is invalid"}
 				}
 				grant.AccessHash = tokenHash(access)
-				grant.AccessExpires = time.Now().Add(accessLifetime).Unix()
+				grant.AccessExpires = now + int64(accessLifetime.Seconds())
 				grant.RefreshHash = tokenHash(refresh)
-				grant.RefreshExpires = time.Now().Add(refreshLifetime).Unix()
+				grant.RefreshExpires = now + int64(refreshLifetime.Seconds())
+				if grant.EndsAt > 0 {
+					grant.AccessExpires = min(grant.AccessExpires, grant.EndsAt)
+					grant.RefreshExpires = grant.EndsAt
+					expiresIn = int(grant.AccessExpires - now)
+				}
 				st.OAuthGrants[id] = grant
 				scope = grant.Scope
 				return nil
@@ -526,7 +604,7 @@ func (s *managedService) oauthToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	jsonResponse(w, 200, map[string]any{"access_token": access, "token_type": "Bearer", "expires_in": int(accessLifetime.Seconds()), "refresh_token": refresh, "scope": scope})
+	jsonResponse(w, 200, map[string]any{"access_token": access, "token_type": "Bearer", "expires_in": expiresIn, "refresh_token": refresh, "scope": scope})
 }
 func (s *managedService) oauthRevoke(w http.ResponseWriter, r *http.Request) {
 	if r.ContentLength > 8192 || r.ParseForm() != nil {
